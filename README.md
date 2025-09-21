@@ -30,15 +30,44 @@ python train_ppo.py --env carla --obs rgb --action cont --timesteps 300000 --eva
 
 # Continuous steering in [-1,1], GrayRoad
 python train_ppo.py --env carla --obs grayroad --action cont --timesteps 300000 --eval-episodes 12 --out runs/ppo_cont_gray
-\n+# Add `--render --render-freq 1` to any command above to watch the live CARLA camera during training.
+# Add `--render --render-freq 1` to any command above to watch the live CARLA camera during training.
 ```
 
 ## Usage (DQN-Disc)
 ```bash
 python train_dqn_disc.py --env carla --obs rgb --timesteps 300000 --eval-episodes 12 --out runs/dqn_disc_rgb
 python train_dqn_disc.py --env carla --obs grayroad --timesteps 300000 --eval-episodes 12 --out runs/dqn_disc_gray
-\n+# Pass `--render --render-freq 1` here as well for a real-time view.
+# Pass `--render --render-freq 1` here as well for a real-time view.
 ```
+
+## Route Testing
+
+After training, evaluate each method on specific CARLA spawn pairs. Provide routes inline as `start_idx:goal_idx` or via a JSON file containing a `routes` list (e.g. `{"routes": [{"start": 416, "goal": 252}]}`).
+
+### RL policies (PPO / DQN)
+```bash
+python test_rl_routes.py --algo ppo --model runs/ppo_disc_rgb/ppo_carla_rgb_disc.zip \
+    --obs rgb --action disc --routes 416:252 120:45 --render
+
+# Using a JSON definition
+python test_rl_routes.py --algo dqn --model runs/dqn_disc_rgb/dqn_carla_rgb_disc.zip --routes-json routes.json --render
+
+# Add `--log-dir logs/ppo_eval` to emit per-step trajectory CSVs (positions, speeds, lane deviation).
+```
+
+### Active Inference baseline
+```bash
+python test_active_inference.py --model Active_inference_trained_model.h5 --reference ref6.png \
+    --routes 416:252 120:45 --csv results_active_inference.csv --log-dir logs/aif_eval
+```
+
+### Imitation learning baseline
+```bash
+python test_imitation_agent.py --model Imitation_learning_trained_model.h5 --routes 416:252 120:45 \
+    --csv results_imitation.csv --log-dir logs/bc_eval
+```
+
+All evaluation scripts stop runs early if the vehicle stays under 1 km/h for more than five minutes or starts moving away from the goal after getting close. The optional `--log-dir` trajectory files capture per-step pose, speed, and lane deviation so you can recompute metrics such as average deviation offline.
 
 ### Note on your `CarEnv`
 We attempt `from car_env import CarEnv`. Your env should accept a config dict with keys like:

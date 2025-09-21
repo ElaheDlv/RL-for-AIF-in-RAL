@@ -22,6 +22,7 @@ class CarEnv(gym.Env):
         self.t = 0
         self.show_cam = bool(cfg.get("show_cam", False))
         self.window_name = cfg.get("window_name", "CarEnv Camera")
+        self.route_goal_tolerance = float(cfg.get("route_goal_tolerance", 5.0))
 
         # Action space
         if self.discrete:
@@ -40,10 +41,15 @@ class CarEnv(gym.Env):
         self.bp_lib = self.world.get_blueprint_library()
         self.vehicle_bp = self.bp_lib.filter("vehicle.tesla.model3")[0]
         #spawn_point = self.world.get_map().get_spawn_points()[0]
-        spawn_points = self.world.get_map().get_spawn_points()
-        spawn = self.rng.choice(spawn_points)
-        #self.vehicle.set_transform(spawn)
-        self.vehicle = self.world.spawn_actor(self.vehicle_bp, spawn)
+        self.map = self.world.get_map()
+        self.spawn_points = self.map.get_spawn_points()
+        self.routes = self._parse_routes(cfg.get("routes"))
+        self._route_cursor = 0
+        self.current_route = None
+        self.goal_transform = None
+
+        initial_spawn = self._get_spawn_for_current_route(advance=False)
+        self.vehicle = self.world.spawn_actor(self.vehicle_bp, initial_spawn)
 
         # Attach cameras
         bound_x = 0.5 + self.vehicle.bounding_box.extent.x
@@ -70,6 +76,7 @@ class CarEnv(gym.Env):
         self.rgb_camera.listen(lambda data: self._rgb_callback(data))
         self.sem_camera.listen(lambda data: self._sem_callback(data))
 
+        # Sensors need a moment to warm up before first reset
         self.reset()
 
     # -------- Camera Callbacks --------
@@ -89,13 +96,52 @@ class CarEnv(gym.Env):
         road = np.expand_dims(road, axis=2)  # (160,160,1)
         self.grayroad_image = road
 
+    # -------- Route helpers --------
+    def _parse_routes(self, routes):
+        if not routes:
+            return None
+        parsed = []
+        for entry in routes:
+            if isinstance(entry, dict):
+                start_idx = entry.get("start")
+                goal_idx = entry.get("goal")
+            else:
+                try:
+                    start_idx, goal_idx = entry
+                except (TypeError, ValueError):
+                    continue
+            if start_idx is None or goal_idx is None:
+                continue
+            if not (0 <= int(start_idx) < len(self.spawn_points)):
+                raise ValueError(f"Route start index {start_idx} outside available spawn points")
+            if not (0 <= int(goal_idx) < len(self.spawn_points)):
+                raise ValueError(f"Route goal index {goal_idx} outside available spawn points")
+            parsed.append({"start": int(start_idx), "goal": int(goal_idx)})
+        return parsed if parsed else None
+
+    def _get_spawn_for_current_route(self, advance: bool = True):
+        if not self.routes:
+            self.current_route = None
+            self.goal_transform = None
+            return self.rng.choice(self.spawn_points)
+        idx = self._route_cursor % len(self.routes)
+        route = self.routes[idx]
+        self.current_route = route
+        self.goal_transform = self.spawn_points[route["goal"]]
+        if advance:
+            self._route_cursor = (idx + 1) % len(self.routes)
+        return self.spawn_points[route["start"]]
+
+    def _goal_distance(self):
+        if self.goal_transform is None:
+            return None
+        veh_loc = self.vehicle.get_transform().location
+        return veh_loc.distance(self.goal_transform.location)
+
     # -------- Gym API --------
     def reset(self, *, seed=None, options=None):
         self.t = 0
-        # Respawn vehicle at spawn point
-        #self.vehicle.set_transform(self.world.get_map().get_spawn_points()[0])
-        spawn_points = self.world.get_map().get_spawn_points()
-        spawn = self.rng.choice(spawn_points)
+        spawn = self._get_spawn_for_current_route(advance=True)
         self.vehicle.set_transform(spawn)
 
         if hasattr(self.vehicle, "set_target_velocity"):
@@ -103,7 +149,10 @@ class CarEnv(gym.Env):
         if hasattr(self.vehicle, "set_target_angular_velocity"):
             self.vehicle.set_target_angular_velocity(carla.Vector3D(0,0,0))
         obs = self._get_obs()
-        return obs, {}
+        info = {}
+        if self.current_route:
+            info["route"] = dict(self.current_route)
+        return obs, info
 
     def step(self, action):
         self.t += 1
@@ -131,15 +180,28 @@ class CarEnv(gym.Env):
 
         # Reward = -lane deviation
         lane_dev = self._lane_deviation()
-        reward = -abs(lane_dev)
+        lane_penalty = float(abs(lane_dev))
+        reward = -lane_penalty
 
         # Done
+        goal_reached = False
+        goal_distance = self._goal_distance()
         terminated = self.t >= self.max_steps
         truncated = False
         info = {}
-        if terminated:
-            info["success"] = bool(abs(lane_dev) < 0.5)
-            info["lane_deviation"] = float(abs(lane_dev))
+        info["lane_deviation"] = lane_penalty
+        if goal_distance is not None:
+            info["goal_distance"] = float(goal_distance)
+            if goal_distance <= self.route_goal_tolerance:
+                goal_reached = True
+                terminated = True
+        if self.current_route:
+            info["route"] = dict(self.current_route)
+        if terminated and not goal_reached:
+            info["success"] = bool(lane_penalty < 0.5)
+        if goal_reached:
+            info["success"] = True
+            info["goal_reached"] = True
         return obs, reward, terminated, truncated, info
 
     # -------- Helpers --------
@@ -154,7 +216,7 @@ class CarEnv(gym.Env):
             return self.rgb_image
 
     def _lane_deviation(self):
-        wp = self.world.get_map().get_waypoint(self.vehicle.get_location(), project_to_road=True)
+        wp = self.map.get_waypoint(self.vehicle.get_location(), project_to_road=True)
         veh_loc = self.vehicle.get_location()
         return veh_loc.distance(wp.transform.location)
 
