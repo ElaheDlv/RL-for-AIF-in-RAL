@@ -5,14 +5,21 @@ import os
 import numpy as np
 from stable_baselines3 import DQN
 from stable_baselines3.common.vec_env import DummyVecEnv
-from common_utils import STEER_BINS, choose_policy_for_obs_space, read_metrics_from_info, StepTimer
+from common_utils import (
+    STEER_BINS,
+    choose_policy_for_obs_space,
+    read_metrics_from_info,
+    StepTimer,
+    LiveRenderCallback,
+)
 from make_env import make_env
 
-def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: int, seed: int, out_dir: str = "."):
+def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: int, seed: int,
+                   out_dir: str = ".", render: bool = False, render_freq: int = 1):
     assert obs_mode in ("rgb","grayroad")
     # DQN only supports discrete actions
     def _make():
-        return make_env(env_kind, obs_mode, "disc", STEER_BINS, seed=seed)
+        return make_env(env_kind, obs_mode, "disc", STEER_BINS, seed=seed, show_cam=render)
     vec = DummyVecEnv([_make])
     policy = choose_policy_for_obs_space(vec.observation_space)
     print(f"[INFO] DQN Policy: {policy} | Obs: {obs_mode} | Action: disc")
@@ -33,7 +40,11 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
         exploration_final_eps=0.05,
         tensorboard_log=os.path.join(out_dir, "tb_logs_dqn"),
     )
-    model.learn(total_timesteps=timesteps, progress_bar=True)
+    callback = LiveRenderCallback(vec, freq=render_freq) if render else None
+    model.learn(total_timesteps=timesteps, progress_bar=True, callback=callback)
+
+    if hasattr(vec, "close"):
+        vec.close()
 
     save_tag = f"dqn_{env_kind}_{obs_mode}_disc.zip"
     save_path = os.path.join(out_dir, save_tag)
@@ -41,7 +52,7 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
     print(f"[INFO] Saved model to {save_path}")
 
     # Eval
-    single_env = make_env(env_kind, obs_mode, "disc", STEER_BINS, seed=seed+123)
+    single_env = make_env(env_kind, obs_mode, "disc", STEER_BINS, seed=seed+123, show_cam=False)
     successes, deviations = [], []
     timer = StepTimer()
     for ep in range(eval_episodes):
@@ -92,10 +103,21 @@ def main():
     ap.add_argument("--eval-episodes", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=".")
+    ap.add_argument("--render", action="store_true", help="Show live camera feed during training")
+    ap.add_argument("--render-freq", type=int, default=1, help="Render every N environment steps (>=1)")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
-    train_and_eval(args.env, args.obs, args.timesteps, args.eval_episodes, args.seed, out_dir=args.out)
+    train_and_eval(
+        args.env,
+        args.obs,
+        args.timesteps,
+        args.eval_episodes,
+        args.seed,
+        out_dir=args.out,
+        render=args.render,
+        render_freq=args.render_freq,
+    )
 
 if __name__ == "__main__":
     main()

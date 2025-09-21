@@ -17,9 +17,11 @@ class CarEnv(gym.Env):
         self.steer_bins = np.array(cfg.get("steer_bins", np.linspace(-1,1,20)))
         self.image_shape = cfg.get("image_shape", (160,160,3))
         self.max_steps = cfg.get("max_steps", 600)
-        seed = 10
+        seed = int(cfg.get("seed", 0))
         self.rng = np.random.default_rng(seed)
         self.t = 0
+        self.show_cam = bool(cfg.get("show_cam", False))
+        self.window_name = cfg.get("window_name", "CarEnv Camera")
 
         # Action space
         if self.discrete:
@@ -96,8 +98,10 @@ class CarEnv(gym.Env):
         spawn = self.rng.choice(spawn_points)
         self.vehicle.set_transform(spawn)
 
-        self.vehicle.set_velocity(carla.Vector3D(0,0,0))
-        self.vehicle.set_angular_velocity(carla.Vector3D(0,0,0))
+        if hasattr(self.vehicle, "set_target_velocity"):
+            self.vehicle.set_target_velocity(carla.Vector3D(0,0,0))
+        if hasattr(self.vehicle, "set_target_angular_velocity"):
+            self.vehicle.set_target_angular_velocity(carla.Vector3D(0,0,0))
         obs = self._get_obs()
         return obs, {}
 
@@ -158,13 +162,39 @@ class CarEnv(gym.Env):
         for actor in [self.rgb_camera, self.sem_camera, self.vehicle]:
             if actor is not None:
                 actor.destroy()
+        if self.show_cam:
+            try:
+                cv2.destroyWindow(self.window_name)
+            except Exception:
+                pass
 
 
     def render(self, mode="human"):
-        obs = self._get_obs()
-        if obs is None:
+        if not self.show_cam:
             return
-        plt.imshow(obs.squeeze(), cmap="gray" if obs.shape[-1]==1 else None)
-        plt.axis("off")
-        plt.title(f"Step {self.t}")
-        plt.pause(0.001)
+        frame = None
+        if self.obs_mode == "grayroad":
+            frame = self.grayroad_image
+        else:
+            frame = self.rgb_image
+        if frame is None:
+            return
+        frame = np.array(frame)
+        frame = np.clip(frame * 255.0, 0, 255).astype(np.uint8)
+        if frame.ndim == 3 and frame.shape[2] == 1:
+            frame = np.repeat(frame, 3, axis=2)
+        if frame.ndim == 2:
+            frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+        else:
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        cv2.imshow(self.window_name, frame)
+        cv2.waitKey(1)
+
+    def set_show_cam(self, flag: bool):
+        flag = bool(flag)
+        if self.show_cam and not flag:
+            try:
+                cv2.destroyWindow(self.window_name)
+            except Exception:
+                pass
+        self.show_cam = flag

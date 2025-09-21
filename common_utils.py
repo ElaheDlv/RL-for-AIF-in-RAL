@@ -1,7 +1,9 @@
 
 import time
 import numpy as np
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
+
+from stable_baselines3.common.callbacks import BaseCallback
 
 def make_steering_bins(n_bins: int = 20):
     import numpy as np
@@ -54,3 +56,21 @@ class StepTimer:
             return float('nan')
         mean_dt = float(np.mean(self.samples))
         return 1.0 / mean_dt if mean_dt > 0 else float('inf')
+
+
+class LiveRenderCallback(BaseCallback):
+    """Render the first environment at a configurable frequency using matplotlib."""
+
+    def __init__(self, vec_env, freq: int = 1, verbose: int = 0):
+        super().__init__(verbose)
+        self.vec_env = vec_env
+        self.freq = max(1, int(freq))
+
+    def _on_step(self) -> bool:
+        if self.num_timesteps % self.freq == 0:
+            envs = getattr(self.vec_env, "envs", None)
+            if envs:
+                base_env = envs[0]
+                if hasattr(base_env, "render"):
+                    base_env.render()
+        return True

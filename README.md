@@ -8,7 +8,7 @@ This package gives you *four PPO variants* and an optional *DQN-Disc* to compare
 - PPO-Cont + **GrayRoad**
 - (Optional) **DQN-Disc** + RGB/GrayRoad
 
-It prefers your CARLA `CarEnv`; if unavailable it falls back to a toy lane-keeping env so you can test the pipeline.
+It prefers your CARLA `CarEnv`; if you want a lightweight smoke test, launch with `--env toy` explicitly. The CARLA option now fails fast when the simulator is unavailable or incompatible so you don't silently train on the toy env.
 
 ## Install
 ```bash
@@ -30,12 +30,14 @@ python train_ppo.py --env carla --obs rgb --action cont --timesteps 300000 --eva
 
 # Continuous steering in [-1,1], GrayRoad
 python train_ppo.py --env carla --obs grayroad --action cont --timesteps 300000 --eval-episodes 12 --out runs/ppo_cont_gray
+\n+# Add `--render --render-freq 1` to any command above to watch the live CARLA camera during training.
 ```
 
 ## Usage (DQN-Disc)
 ```bash
 python train_dqn_disc.py --env carla --obs rgb --timesteps 300000 --eval-episodes 12 --out runs/dqn_disc_rgb
 python train_dqn_disc.py --env carla --obs grayroad --timesteps 300000 --eval-episodes 12 --out runs/dqn_disc_gray
+\n+# Pass `--render --render-freq 1` here as well for a real-time view.
 ```
 
 ### Note on your `CarEnv`

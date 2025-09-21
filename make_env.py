@@ -1,8 +1,35 @@
 
 from typing import Optional, Tuple
 import numpy as np
+import gymnasium as gym
+from gymnasium import spaces
 
-def try_make_carla_env(obs_mode: str, action_space: str, steer_bins, seed: int = 0):
+class ChannelFirstObservation(gym.ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        obs_space = env.observation_space
+        assert isinstance(obs_space, spaces.Box)
+        assert len(obs_space.shape) == 3
+        self.observation_space = spaces.Box(
+            low=np.transpose(obs_space.low, (2, 0, 1)),
+            high=np.transpose(obs_space.high, (2, 0, 1)),
+            dtype=obs_space.dtype,
+        )
+
+    def observation(self, observation):
+        return np.transpose(observation, (2, 0, 1))
+
+
+def ensure_channel_first(env):
+    obs_space = env.observation_space
+    if isinstance(obs_space, spaces.Box) and len(obs_space.shape) == 3:
+        # If channel is last, move to channel-first for SB3 CNN policies
+        if obs_space.shape[0] not in (1, 3):
+            env = ChannelFirstObservation(env)
+    return env
+
+
+def try_make_carla_env(obs_mode: str, action_space: str, steer_bins, seed: int = 0, show_cam: bool = False):
     """
     Attempt to construct user's CarEnv with a minimal config.
     Expected signature: CarEnv(cfg_dict)
@@ -18,11 +45,13 @@ def try_make_carla_env(obs_mode: str, action_space: str, steer_bins, seed: int =
         "steer_bins": steer_bins.tolist(),
         "max_steps": 600,
         "seed": seed,
+        "show_cam": show_cam,
     }
     if action_space == "cont":
         cfg["action_space"] = "continuous"
     try:
         env = CarEnv(cfg)
+        env = ensure_channel_first(env)
         return env, None
     except Exception as e:
         return None, e
@@ -33,7 +62,7 @@ def _rgb_from_gray(gray):
     rgb = np.repeat(gray, 3, axis=2)
     return rgb
 
-def make_toy_env(obs_mode: str, action_space: str, steer_bins, seed: int = 0):
+def make_toy_env(obs_mode: str, action_space: str, steer_bins, seed: int = 0, show_cam: bool = False):
     import gymnasium as gym
 
     class ToyLaneKeep(gym.Env):
@@ -48,6 +77,8 @@ def make_toy_env(obs_mode: str, action_space: str, steer_bins, seed: int = 0):
             self.prev_steer = 0.0
             self.obs_mode = obs_mode
             self.action_space_kind = action_space
+            self.show_cam = show_cam
+            self.window_name = f"ToyLaneKeep-{obs_mode}-{action_space}"
             if obs_mode == "grayroad":
                 self.observation_space = gym.spaces.Box(low=0.0, high=1.0, shape=(160,160,1), dtype=np.float32)
             else:
@@ -96,13 +127,36 @@ def make_toy_env(obs_mode: str, action_space: str, steer_bins, seed: int = 0):
                 return img
             return _rgb_from_gray(img)
 
-    return ToyLaneKeep(seed=seed)
+        def render(self):
+            if not self.show_cam:
+                return
+            frame = self._obs()
+            frame = np.clip(frame * 255.0, 0, 255).astype(np.uint8)
+            if frame.shape[-1] == 1:
+                frame = np.repeat(frame, 3, axis=2)
+            import cv2
+            cv2.imshow(self.window_name, frame)
+            cv2.waitKey(1)
 
-def make_env(which: str, obs_mode: str, action_space: str, steer_bins, seed: int = 0):
-    if which.lower() == "carla":
-        env, err = try_make_carla_env(obs_mode, action_space, steer_bins, seed=seed)
-        if env is not None:
-            print("[INFO] Using user's CarEnv.")
-            return env
-        print(f"[WARN] Could not construct CarEnv ({err}). Falling back to ToyLaneKeep.")
-    return make_toy_env(obs_mode, action_space, steer_bins, seed=seed)
+        def close(self):
+            if self.show_cam:
+                import cv2
+                cv2.destroyWindow(self.window_name)
+
+    env = ToyLaneKeep(seed=seed)
+    return ensure_channel_first(env)
+
+def make_env(which: str, obs_mode: str, action_space: str, steer_bins, seed: int = 0, show_cam: bool = False):
+    which = which.lower()
+    if which == "carla":
+        env, err = try_make_carla_env(obs_mode, action_space, steer_bins, seed=seed, show_cam=show_cam)
+        if env is None:
+            raise RuntimeError(
+                "Failed to construct CarEnv; please ensure CARLA is running and matches the expected API."
+                f" Details: {err}"
+            )
+        print("[INFO] Using user's CarEnv.")
+        return env
+    if which == "toy":
+        return make_toy_env(obs_mode, action_space, steer_bins, seed=seed, show_cam=show_cam)
+    raise ValueError(f"Unknown environment kind '{which}'.")

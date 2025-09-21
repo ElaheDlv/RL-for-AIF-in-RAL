@@ -3,45 +3,35 @@
 import argparse
 import os
 from typing import List
-from xml.parsers.expat import model
 
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from common_utils import STEER_BINS, choose_policy_for_obs_space, read_metrics_from_info, StepTimer
+from common_utils import (
+    STEER_BINS,
+    choose_policy_for_obs_space,
+    read_metrics_from_info,
+    StepTimer,
+    LiveRenderCallback,
+)
 from make_env import make_env
-
-
-from stable_baselines3.common.callbacks import BaseCallback
-
-class RenderCallback(BaseCallback):
-    def __init__(self, env, freq=20000, verbose=0):
-        super().__init__(verbose)
-        self.env = env
-        self.freq = freq
-        self._can_render = hasattr(env, "render")
-
-    def _on_step(self) -> bool:
-        if self._can_render and self.num_timesteps % self.freq == 0:
-            self.env.render()
-        return True
 
 
 def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
                    timesteps: int, eval_episodes: int, seed: int,
-                   town: str = None, route: str = None, out_dir: str = "."):
+                   town: str = None, route: str = None, out_dir: str = ".",
+                   render: bool = False, render_freq: int = 1):
     def _make():
-        return make_env(env_kind, obs_mode, action_space, STEER_BINS, seed=seed)
+        return make_env(env_kind, obs_mode, action_space, STEER_BINS, seed=seed, show_cam=render)
     vec = DummyVecEnv([_make])
+
     policy = choose_policy_for_obs_space(vec.observation_space)
     print(f"[INFO] Policy: {policy} | Obs: {obs_mode} | Action: {action_space}")
 
     policy_kwargs = {}
     if policy == "CnnPolicy":
         policy_kwargs["normalize_images"] = False
-
-    render_env = make_env(env_kind, obs_mode, action_space, STEER_BINS, seed=seed+999)
 
     model = PPO(
         policy,
@@ -58,12 +48,11 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         tensorboard_log=os.path.join(out_dir, "tb_logs_ppo"),
         policy_kwargs=policy_kwargs if policy_kwargs else None,
     )
-    #model.learn(total_timesteps=timesteps, progress_bar=True)
-    render_cb = RenderCallback(render_env, freq=20000)
-    model.learn(total_timesteps=timesteps, progress_bar=True, callback=render_cb)
+    callback = LiveRenderCallback(vec, freq=render_freq) if render else None
+    model.learn(total_timesteps=timesteps, progress_bar=True, callback=callback)
 
-    if hasattr(render_env, "close"):
-        render_env.close()
+    if hasattr(vec, "close"):
+        vec.close()
 
 
     save_tag = f"ppo_{env_kind}_{obs_mode}_{action_space}.zip"
@@ -72,7 +61,7 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
     print(f"[INFO] Saved model to {save_path}")
 
     # Evaluation
-    single_env = make_env(env_kind, obs_mode, action_space, STEER_BINS, seed=seed+123)
+    single_env = make_env(env_kind, obs_mode, action_space, STEER_BINS, seed=seed+123, show_cam=False)
     successes, deviations = [], []
     timer = StepTimer()
 
@@ -94,6 +83,9 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
             dev = float(np.mean(ep_devs)) if ep_devs else np.nan
         successes.append(bool(succ))
         deviations.append(float(dev))
+
+    if hasattr(single_env, "close"):
+        single_env.close()
 
     success_rate = 100.0 * (np.sum(successes) / len(successes))
     avg_dev = float(np.nanmean(deviations)) if len(deviations) else float("nan")
@@ -126,10 +118,22 @@ def main():
     ap.add_argument("--eval-episodes", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=".")
+    ap.add_argument("--render", action="store_true", help="Show live camera feed during training")
+    ap.add_argument("--render-freq", type=int, default=1, help="Render every N environment steps (>=1)")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
-    train_and_eval(args.env, args.obs, args.action, args.timesteps, args.eval_episodes, args.seed, out_dir=args.out)
+    train_and_eval(
+        args.env,
+        args.obs,
+        args.action,
+        args.timesteps,
+        args.eval_episodes,
+        args.seed,
+        out_dir=args.out,
+        render=args.render,
+        render_freq=args.render_freq,
+    )
 
 if __name__ == "__main__":
     main()
