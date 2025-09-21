@@ -1,0 +1,101 @@
+
+#!/usr/bin/env python3
+import argparse
+import os
+import numpy as np
+from stable_baselines3 import DQN
+from stable_baselines3.common.vec_env import DummyVecEnv
+from common_utils import STEER_BINS, choose_policy_for_obs_space, read_metrics_from_info, StepTimer
+from make_env import make_env
+
+def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: int, seed: int, out_dir: str = "."):
+    assert obs_mode in ("rgb","grayroad")
+    # DQN only supports discrete actions
+    def _make():
+        return make_env(env_kind, obs_mode, "disc", STEER_BINS, seed=seed)
+    vec = DummyVecEnv([_make])
+    policy = choose_policy_for_obs_space(vec.observation_space)
+    print(f"[INFO] DQN Policy: {policy} | Obs: {obs_mode} | Action: disc")
+
+    model = DQN(
+        policy,
+        vec,
+        verbose=1,
+        seed=seed,
+        learning_rate=1e-3,
+        buffer_size=50_000,
+        learning_starts=10_000,
+        batch_size=64,
+        gamma=0.99,
+        train_freq=4,
+        target_update_interval=10_000,
+        exploration_fraction=0.2,
+        exploration_final_eps=0.05,
+        tensorboard_log=os.path.join(out_dir, "tb_logs_dqn"),
+    )
+    model.learn(total_timesteps=timesteps, progress_bar=True)
+
+    save_tag = f"dqn_{env_kind}_{obs_mode}_disc.zip"
+    save_path = os.path.join(out_dir, save_tag)
+    model.save(save_path)
+    print(f"[INFO] Saved model to {save_path}")
+
+    # Eval
+    single_env = make_env(env_kind, obs_mode, "disc", STEER_BINS, seed=seed+123)
+    successes, deviations = [], []
+    timer = StepTimer()
+    for ep in range(eval_episodes):
+        obs, info = single_env.reset(seed=seed+1000+ep)
+        terminated = truncated = False
+        ep_devs = []
+        while not (terminated or truncated):
+            timer.start()
+            action, _ = model.predict(obs, deterministic=True)
+            timer.stop()
+            obs, reward, terminated, truncated, info = single_env.step(int(action))
+            if "lane_deviation" in info:
+                ep_devs.append(float(info["lane_deviation"]))
+        succ, dev = read_metrics_from_info(info)
+        if succ is None:
+            succ = not terminated
+        if dev is None:
+            dev = float(np.mean(ep_devs)) if ep_devs else np.nan
+        successes.append(bool(succ))
+        deviations.append(float(dev))
+
+    import csv
+    success_rate = 100.0 * (np.sum(successes) / len(successes))
+    avg_dev = float(np.nanmean(deviations)) if len(deviations) else float("nan")
+    print("======== Evaluation (DQN) ========")
+    print(f"Success Rate: {success_rate:.2f} %")
+    print(f"Avg. Deviation: {avg_dev:.4f} m")
+    print(f"Inference FPS (mean): {timer.mean_fps:.2f}")
+    print(f"Latency per step (ms): {timer.mean_latency_ms:.3f}")
+    print("============================")
+
+    csv_path = os.path.join(out_dir, "results_dqn.csv")
+    header = ["method","obs_mode","action_space","success_rate","avg_deviation_m","fps","latency_ms","timesteps"]
+    row = ["DQN", obs_mode, "disc", f"{success_rate:.2f}", f"{avg_dev:.4f}", f"{timer.mean_fps:.2f}", f"{timer.mean_latency_ms:.3f}", timesteps]
+    exists = os.path.exists(csv_path)
+    with open(csv_path, "a", newline="") as f:
+        w = csv.writer(f)
+        if not exists:
+            w.writerow(header)
+        w.writerow(row)
+    print(f"[INFO] Appended results to {csv_path}")
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--env", default="carla", choices=["carla","toy"])
+    ap.add_argument("--obs", default="rgb", choices=["rgb","grayroad"])
+    ap.add_argument("--timesteps", type=int, default=300_000)
+    ap.add_argument("--eval-episodes", type=int, default=12)
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--out", default=".")
+    args = ap.parse_args()
+
+    os.makedirs(args.out, exist_ok=True)
+    train_and_eval(args.env, args.obs, args.timesteps, args.eval_episodes, args.seed, out_dir=args.out)
+
+if __name__ == "__main__":
+    main()
