@@ -2,11 +2,12 @@
 #!/usr/bin/env python3
 import argparse
 import os
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 
 from common_utils import (
     STEER_BINS,
@@ -21,7 +22,8 @@ from make_env import make_env
 def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
                    timesteps: int, eval_episodes: int, seed: int,
                    town: str = None, route: str = None, out_dir: str = ".",
-                   render: bool = False, render_freq: int = 1):
+                   render: bool = False, render_freq: int = 1,
+                   checkpoint_freq: int = 0, checkpoint_dir: Optional[str] = None):
     def _make():
         return make_env(env_kind, obs_mode, action_space, STEER_BINS, seed=seed, show_cam=render)
     vec = DummyVecEnv([_make])
@@ -33,15 +35,13 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
     if policy == "CnnPolicy":
         policy_kwargs["normalize_images"] = False
 
-    # NOTE: For more stable lane-following you can experiment with longer rollouts (e.g. n_steps=2048)
-    # and smaller batches (e.g. 32), or slightly lower learning rates once you start fine-tuning.
     model = PPO(
         policy,
         vec,
         verbose=1,
         seed=seed,
-        n_steps=1024,
-        batch_size=64,
+        n_steps=2048,
+        batch_size=32,
         gae_lambda=0.95,
         gamma=0.99,
         n_epochs=10,
@@ -50,8 +50,22 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         tensorboard_log=os.path.join(out_dir, "tb_logs_ppo"),
         policy_kwargs=policy_kwargs if policy_kwargs else None,
     )
-    callback = LiveRenderCallback(vec, freq=render_freq) if render else None
-    model.learn(total_timesteps=timesteps, progress_bar=True, callback=callback)
+    callbacks = []
+    if render:
+        callbacks.append(LiveRenderCallback(vec, freq=render_freq))
+    if checkpoint_freq > 0:
+        save_dir = checkpoint_dir or os.path.join(out_dir, "checkpoints")
+        os.makedirs(save_dir, exist_ok=True)
+        callbacks.append(
+            CheckpointCallback(
+                save_freq=int(checkpoint_freq),
+                save_path=save_dir,
+                name_prefix=f"ppo_{env_kind}_{obs_mode}_{action_space}"
+            )
+        )
+    callback_list = CallbackList(callbacks) if callbacks else None
+
+    model.learn(total_timesteps=timesteps, progress_bar=True, callback=callback_list)
 
     if hasattr(vec, "close"):
         vec.close()
@@ -116,15 +130,18 @@ def main():
     ap.add_argument("--env", default="carla", choices=["carla","toy"])
     ap.add_argument("--obs", default="rgb", choices=["rgb","grayroad"])
     ap.add_argument("--action", default="disc", choices=["disc","cont"])
-    ap.add_argument("--timesteps", type=int, default=300_000)
+    ap.add_argument("--timesteps", type=int, default=2_000_000)
     ap.add_argument("--eval-episodes", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=".")
     ap.add_argument("--render", action="store_true", help="Show live camera feed during training")
     ap.add_argument("--render-freq", type=int, default=1, help="Render every N environment steps (>=1)")
+    ap.add_argument("--checkpoint-freq", type=int, default=100_000, help="Save model every N steps (0 disables)")
+    ap.add_argument("--checkpoint-dir", default=None, help="Directory for checkpoints (defaults to <out>/checkpoints)")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
+    checkpoint_dir = args.checkpoint_dir or os.path.join(args.out, "checkpoints")
     train_and_eval(
         args.env,
         args.obs,
@@ -135,6 +152,8 @@ def main():
         out_dir=args.out,
         render=args.render,
         render_freq=args.render_freq,
+        checkpoint_freq=args.checkpoint_freq,
+        checkpoint_dir=checkpoint_dir,
     )
 
 if __name__ == "__main__":

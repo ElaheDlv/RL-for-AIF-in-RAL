@@ -3,8 +3,10 @@
 import argparse
 import os
 import numpy as np
+from typing import Optional
 from stable_baselines3 import DQN
 from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from common_utils import (
     STEER_BINS,
     choose_policy_for_obs_space,
@@ -15,7 +17,8 @@ from common_utils import (
 from make_env import make_env
 
 def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: int, seed: int,
-                   out_dir: str = ".", render: bool = False, render_freq: int = 1):
+                   out_dir: str = ".", render: bool = False, render_freq: int = 1,
+                   checkpoint_freq: int = 0, checkpoint_dir: Optional[str] = None):
     assert obs_mode in ("rgb","grayroad")
     # DQN only supports discrete actions
     def _make():
@@ -24,8 +27,6 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
     policy = choose_policy_for_obs_space(vec.observation_space)
     print(f"[INFO] DQN Policy: {policy} | Obs: {obs_mode} | Action: disc")
 
-    # NOTE: DQN defaults work, but for CARLA lane-keeping you may want to lower learning_starts (e.g. 5k),
-    # shorten target_update_interval (≈5k), or decay epsilon more slowly (exploration_fraction ≈0.4).
     model = DQN(
         policy,
         vec,
@@ -37,13 +38,26 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
         batch_size=64,
         gamma=0.99,
         train_freq=4,
-        target_update_interval=10_000,
-        exploration_fraction=0.2,
+        target_update_interval=5_000,
+        exploration_fraction=0.4,
         exploration_final_eps=0.05,
         tensorboard_log=os.path.join(out_dir, "tb_logs_dqn"),
     )
-    callback = LiveRenderCallback(vec, freq=render_freq) if render else None
-    model.learn(total_timesteps=timesteps, progress_bar=True, callback=callback)
+    callbacks = []
+    if render:
+        callbacks.append(LiveRenderCallback(vec, freq=render_freq))
+    if checkpoint_freq > 0:
+        save_dir = checkpoint_dir or os.path.join(out_dir, "checkpoints")
+        os.makedirs(save_dir, exist_ok=True)
+        callbacks.append(
+            CheckpointCallback(
+                save_freq=int(checkpoint_freq),
+                save_path=save_dir,
+                name_prefix=f"dqn_{env_kind}_{obs_mode}_disc"
+            )
+        )
+    callback_list = CallbackList(callbacks) if callbacks else None
+    model.learn(total_timesteps=timesteps, progress_bar=True, callback=callback_list)
 
     if hasattr(vec, "close"):
         vec.close()
@@ -101,15 +115,18 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--env", default="carla", choices=["carla","toy"])
     ap.add_argument("--obs", default="rgb", choices=["rgb","grayroad"])
-    ap.add_argument("--timesteps", type=int, default=300_000)
+    ap.add_argument("--timesteps", type=int, default=2_000_000)
     ap.add_argument("--eval-episodes", type=int, default=12)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default=".")
     ap.add_argument("--render", action="store_true", help="Show live camera feed during training")
     ap.add_argument("--render-freq", type=int, default=1, help="Render every N environment steps (>=1)")
+    ap.add_argument("--checkpoint-freq", type=int, default=100_000, help="Save model every N steps (0 disables)")
+    ap.add_argument("--checkpoint-dir", default=None, help="Directory for checkpoints (defaults to <out>/checkpoints)")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
+    checkpoint_dir = args.checkpoint_dir or os.path.join(args.out, "checkpoints")
     train_and_eval(
         args.env,
         args.obs,
@@ -119,6 +136,8 @@ def main():
         out_dir=args.out,
         render=args.render,
         render_freq=args.render_freq,
+        checkpoint_freq=args.checkpoint_freq,
+        checkpoint_dir=checkpoint_dir,
     )
 
 if __name__ == "__main__":
