@@ -24,6 +24,8 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
     policy = choose_policy_for_obs_space(vec.observation_space)
     print(f"[INFO] DQN Policy: {policy} | Obs: {obs_mode} | Action: disc")
 
+    # NOTE: DQN defaults work, but for CARLA lane-keeping you may want to lower learning_starts (e.g. 5k),
+    # shorten target_update_interval (≈5k), or decay epsilon more slowly (exploration_fraction ≈0.4).
     model = DQN(
         policy,
         vec,

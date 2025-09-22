@@ -33,6 +33,8 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
     if policy == "CnnPolicy":
         policy_kwargs["normalize_images"] = False
 
+    # NOTE: For more stable lane-following you can experiment with longer rollouts (e.g. n_steps=2048)
+    # and smaller batches (e.g. 32), or slightly lower learning rates once you start fine-tuning.
     model = PPO(
         policy,
         vec,

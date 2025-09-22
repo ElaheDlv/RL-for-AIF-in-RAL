@@ -86,14 +86,24 @@ class CarEnv(gym.Env):
         self.rgb_image = (array/255.0).astype(np.float32)
 
     def _sem_callback(self, image):
+        # Convert the semantic segmentation frame to the CityScapes colour palette
+        # so that road pixels have a deterministic BGR colour (128, 64, 128).
+        image.convert(carla.ColorConverter.CityScapesPalette)
         array = np.frombuffer(image.raw_data, dtype=np.uint8)
-        array = array.reshape((image.height, image.width, 4))[:,:,2]  # label in blue channel
-        # Road = 128 in CityScapesPalette
-        road = np.zeros_like(array, dtype=np.uint8)
-        road[array == 128] = 255
-        road = cv2.resize(road, (160,160))
-        road = (road/255.0).astype(np.float32)
-        road = np.expand_dims(road, axis=2)  # (160,160,1)
+        array = array.reshape((image.height, image.width, 4))[:, :, :3]  # drop alpha
+
+        road_mask = (
+            (array[:, :, 0] == 128) &  # Blue
+            (array[:, :, 1] == 64)  &  # Green
+            (array[:, :, 2] == 128)    # Red
+        )
+
+        road = np.zeros((image.height, image.width), dtype=np.uint8)
+        road[road_mask] = 255
+
+        road = cv2.resize(road, (self.image_shape[1], self.image_shape[0]))
+        road = (road / 255.0).astype(np.float32)
+        road = np.expand_dims(road, axis=2)  # (H,W,1)
         self.grayroad_image = road
 
     # -------- Route helpers --------
@@ -148,6 +158,12 @@ class CarEnv(gym.Env):
             self.vehicle.set_target_velocity(carla.Vector3D(0,0,0))
         if hasattr(self.vehicle, "set_target_angular_velocity"):
             self.vehicle.set_target_angular_velocity(carla.Vector3D(0,0,0))
+        # Clear cached frames so we do not return stale observations from the previous episode.
+        self.rgb_image = None
+        self.grayroad_image = None
+        # Step the simulator a few frames to give sensors time to produce fresh data at the new pose.
+        for _ in range(3):
+            self.world.tick()
         obs = self._get_obs()
         info = {}
         if self.current_route:
@@ -182,6 +198,9 @@ class CarEnv(gym.Env):
         lane_dev = self._lane_deviation()
         lane_penalty = float(abs(lane_dev))
         reward = -lane_penalty
+        # For lateral-control-only training with constant throttle this simple penalty keeps the agent
+        # centred. If you later need smoother steering, consider adding yaw/steer-rate penalties or a
+        # small progress bonus when approaching the target waypoint.
 
         # Done
         goal_reached = False
