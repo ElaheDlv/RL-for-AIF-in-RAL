@@ -5,10 +5,12 @@ import os
 from typing import List, Optional
 
 import numpy as np
+import torch as th
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from callbacks import DrivingMetricsCallback
+from cnn_extractors import SmallCNNSB3
 from common_utils import (
     STEER_BINS,
     choose_policy_for_obs_space,
@@ -33,7 +35,13 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
 
     policy_kwargs = {}
     if policy == "CnnPolicy":
-        policy_kwargs["normalize_images"] = False
+        policy_kwargs = dict(
+            features_extractor_class=SmallCNNSB3,
+            features_extractor_kwargs=dict(out_dim=512),
+            net_arch=dict(pi=[256, 128], vf=[256, 128]),
+            activation_fn=th.nn.ReLU,
+            normalize_images=False,
+        )
 
     model = PPO(
         policy,

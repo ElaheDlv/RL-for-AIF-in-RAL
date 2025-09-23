@@ -47,6 +47,7 @@ class CarEnv(gym.Env):
         self._route_cursor = 0
         self.current_route = None
         self.goal_transform = None
+        self.prev_steer = 0.0
 
         initial_spawn = self._get_spawn_for_current_route(advance=False)
         self.vehicle = self.world.spawn_actor(self.vehicle_bp, initial_spawn)
@@ -164,6 +165,7 @@ class CarEnv(gym.Env):
         # Step the simulator a few frames to give sensors time to produce fresh data at the new pose.
         for _ in range(3):
             self.world.tick()
+        self.prev_steer = 0.0
         obs = self._get_obs()
         info = {}
         if self.current_route:
@@ -182,18 +184,51 @@ class CarEnv(gym.Env):
         vel = self.vehicle.get_velocity()
         v2 = 3.6 * np.sqrt(vel.x**2 + vel.y**2 + vel.z**2)  # km/h
 
-        # Longitudinal control: throttle if below 30 km/h
         if v2 < 30.0:
             throttle = 0.3
         else:
             throttle = 0.0
-        #throttle = 0.3
         self.vehicle.apply_control(carla.VehicleControl(throttle=throttle, steer=steer))
 
         # Step sim
         self.world.tick()
         obs = self._get_obs()
+        
+        
+        # --- reward components ---
+        d_t = float(self._lane_deviation())              # meters
+        yaw_err = float(abs(self._heading_error()))      # radians
+        steer_rate = float(abs(steer - self.prev_steer)) # smoothness
+        self.prev_steer = steer
+        progress = float(self._forward_progress())       # meters
 
+        w_d, w_psi, w_s, w_p = 1.0, 0.5, 0.05, 0.05
+        reward = (
+            - w_d  * min(d_t, 2.0)
+            - w_psi* min(yaw_err, 0.3)
+            - w_s  * steer_rate
+            + w_p  * progress
+            )
+
+        # --- termination ---
+        terminated = self.t >= self.max_steps
+        truncated = False
+        info = {
+            "lane_deviation": d_t,
+            "yaw_error": yaw_err,
+            "steer_rate": steer_rate,
+            "progress": progress,
+            "success": False,
+            }
+        if terminated:
+            if d_t < 0.5:
+                reward += 5.0
+                info["success"] = True
+            else:
+                reward -= 5.0
+
+        return obs, reward, terminated, truncated, info
+        '''
         # Reward = -lane deviation
         lane_dev = self._lane_deviation()
         lane_penalty = float(abs(lane_dev))
@@ -222,7 +257,7 @@ class CarEnv(gym.Env):
             info["success"] = True
             info["goal_reached"] = True
         return obs, reward, terminated, truncated, info
-
+        '''
     # -------- Helpers --------
     def _get_obs(self):
         if self.obs_mode == "grayroad":
@@ -238,6 +273,19 @@ class CarEnv(gym.Env):
         wp = self.map.get_waypoint(self.vehicle.get_location(), project_to_road=True)
         veh_loc = self.vehicle.get_location()
         return veh_loc.distance(wp.transform.location)
+    
+    
+    def _heading_error(self):
+        wp = self.map.get_waypoint(self.vehicle.get_location(), project_to_road=True)
+        lane_yaw = wp.transform.rotation.yaw * np.pi/180.0
+        veh_yaw = self.vehicle.get_transform().rotation.yaw * np.pi/180.0
+        return np.arctan2(np.sin(veh_yaw - lane_yaw), np.cos(veh_yaw - lane_yaw))
+
+    def _forward_progress(self):
+        # Simplest version: reward forward motion in global x-y plane
+        vel = self.vehicle.get_velocity()
+        return np.sqrt(vel.x**2 + vel.y**2 + vel.z**2) * 0.05  # ~ per tick dist
+
 
     def close(self):
         for actor in [self.rgb_camera, self.sem_camera, self.vehicle]:
