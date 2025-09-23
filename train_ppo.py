@@ -8,7 +8,7 @@ import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
-
+from callbacks import DrivingMetricsCallback
 from common_utils import (
     STEER_BINS,
     choose_policy_for_obs_space,
@@ -63,7 +63,15 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
                 name_prefix=f"ppo_{env_kind}_{obs_mode}_{action_space}"
             )
         )
+    callbacks.append(DrivingMetricsCallback())
     callback_list = CallbackList(callbacks) if callbacks else None
+
+    if timesteps % model.n_steps != 0:
+        rounded = (timesteps // model.n_steps + 1) * model.n_steps
+        print(
+            f"[WARN] total_timesteps={timesteps} is not a multiple of rollout n_steps={model.n_steps}. "
+            f"SB3 will collect {rounded} steps."
+        )
 
     model.learn(total_timesteps=timesteps, progress_bar=True, callback=callback_list)
 
