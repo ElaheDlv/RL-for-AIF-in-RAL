@@ -20,16 +20,16 @@ pip install -r requirements.txt
 ## Usage (PPO)
 ```bash
 # Discrete 20-bin steering, RGB
-python train_ppo.py --env carla --obs rgb --action disc --timesteps 300000 --eval-episodes 12 --out runs/ppo_disc_rgb
+python train_ppo.py --env carla --obs rgb --action disc --timesteps 2000000 --eval-episodes 12 --out runs/ppo_disc_rgb
 
 # Discrete 20-bin steering, GrayRoad
-python train_ppo.py --env carla --obs grayroad --action disc --timesteps 300000 --eval-episodes 12 --out runs/ppo_disc_gray
+python train_ppo.py --env carla --obs grayroad --action disc --timesteps 2000000 --eval-episodes 12 --out runs/ppo_disc_gray
 
 # Continuous steering in [-1,1], RGB
-python train_ppo.py --env carla --obs rgb --action cont --timesteps 300000 --eval-episodes 12 --out runs/ppo_cont_rgb
+python train_ppo.py --env carla --obs rgb --action cont --timesteps 2000000 --eval-episodes 12 --out runs/ppo_cont_rgb
 
 # Continuous steering in [-1,1], GrayRoad
-python train_ppo.py --env carla --obs grayroad --action cont --timesteps 300000 --eval-episodes 12 --out runs/ppo_cont_gray
+python train_ppo.py --env carla --obs grayroad --action cont --timesteps 2000000 --eval-episodes 12 --out runs/ppo_cont_gray
 # Add `--render --render-freq 1` to any command above to watch the live CARLA camera during training.
 ```
 
