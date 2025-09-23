@@ -46,13 +46,29 @@ After training, evaluate each method on specific CARLA spawn pairs. Provide rout
 
 ### RL policies (PPO / DQN)
 ```bash
+# PPO discrete steering, RGB observations
 python test_rl_routes.py --algo ppo --model runs/ppo_disc_rgb/ppo_carla_rgb_disc.zip \
-    --obs rgb --action disc --routes 416:252 120:45 --render
+    --obs rgb --action disc --routes 416:252 120:45 --render --log-dir logs/ppo_disc_rgb
 
-# Using a JSON definition
-python test_rl_routes.py --algo dqn --model runs/dqn_disc_rgb/dqn_carla_rgb_disc.zip --routes-json routes.json --render
+# PPO discrete steering, GrayRoad observations
+python test_rl_routes.py --algo ppo --model runs/ppo_disc_gray/ppo_carla_grayroad_disc.zip \
+    --obs grayroad --action disc --routes 416:252 120:45 --log-dir logs/ppo_disc_gray
 
-# Add `--log-dir logs/ppo_eval` to emit per-step trajectory CSVs (positions, speeds, lane deviation).
+# PPO continuous steering, RGB observations
+python test_rl_routes.py --algo ppo --model runs/ppo_cont_rgb/ppo_carla_rgb_cont.zip \
+    --obs rgb --action cont --routes 416:252 120:45 --log-dir logs/ppo_cont_rgb
+
+# PPO continuous steering, GrayRoad observations
+python test_rl_routes.py --algo ppo --model runs/ppo_cont_gray/ppo_carla_grayroad_cont.zip \
+    --obs grayroad --action cont --routes 416:252 120:45 --log-dir logs/ppo_cont_gray
+
+# DQN discrete steering, RGB observations (using JSON route list)
+python test_rl_routes.py --algo dqn --model runs/dqn_disc_rgb/dqn_carla_rgb_disc.zip \
+    --routes-json routes.json --render --log-dir logs/dqn_disc_rgb
+
+# DQN discrete steering, GrayRoad observations
+python test_rl_routes.py --algo dqn --model runs/dqn_disc_gray/dqn_carla_grayroad_disc.zip \
+    --obs grayroad --action disc --routes 416:252 120:45 --log-dir logs/dqn_disc_gray
 ```
 
 ### Active Inference baseline
