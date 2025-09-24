@@ -2,11 +2,12 @@
 # RL Baselines for Lane-Keeping Comparisons
 
 This package gives you *four PPO variants* and an optional *DQN-Disc* to compare against your AIF and BC:
-- PPO-Disc + **RGB**
-- PPO-Disc + **GrayRoad** (road-only grayscale like AIF)
-- PPO-Cont + **RGB**
-- PPO-Cont + **GrayRoad**
-- (Optional) **DQN-Disc** + RGB/GrayRoad
+- PPO-Disc + **RGB** (ResNet18 pretrained on ImageNet as encoder)
+- PPO-Disc + **GrayRoad** (lightweight CNN trained from scratch)
+- PPO-Cont + **RGB** (ResNet18 pretrained encoder)
+- PPO-Cont + **GrayRoad** (lightweight CNN)
+- (Optional) DQN-Disc + RGB/GrayRoad (uses the same extractors as PPO)
+
 
 It prefers your CARLA `CarEnv`; if you want a lightweight smoke test, launch with `--env toy` explicitly. The CARLA option now fails fast when the simulator is unavailable or incompatible so you don't silently train on the toy env.
 
@@ -32,6 +33,10 @@ python train_ppo.py --env carla --obs rgb --action cont --timesteps 2000000 --ev
 python train_ppo.py --env carla --obs grayroad --action cont --timesteps 2000000 --eval-episodes 12 --out runs/ppo_cont_gray
 # Add `--render --render-freq 1` to any command above to watch the live CARLA camera during training.
 ```
+Note: For `--obs rgb`, PPO now uses a ResNet18 backbone pretrained on ImageNet (with frozen early layers).
+For `--obs grayroad`, PPO uses a smaller custom CNN trained from scratch, optimized for binary road masks.
+Also `--render --render-freq 1` to any command above to watch the live CARLA camera during training.
+
 
 ## Usage (DQN-Disc)
 ```bash

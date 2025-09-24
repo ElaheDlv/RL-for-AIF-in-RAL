@@ -10,7 +10,8 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from callbacks import DrivingMetricsCallback
-from cnn_extractors import SmallCNNSB3
+from cnn_extractors import SmallCNNSB3, ResNetFeatureExtractor, GrayroadSmallCNN
+
 from common_utils import (
     STEER_BINS,
     choose_policy_for_obs_space,
@@ -34,14 +35,35 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
     print(f"[INFO] Policy: {policy} | Obs: {obs_mode} | Action: {action_space}")
 
     policy_kwargs = {}
+    
+    # if policy == "CnnPolicy":
+    #     policy_kwargs = dict(
+    #         features_extractor_class=SmallCNNSB3,
+    #         features_extractor_kwargs=dict(out_dim=512),
+    #         net_arch=dict(pi=[256, 128], vf=[256, 128]),
+    #         activation_fn=th.nn.ReLU,
+    #         normalize_images=False,
+    #     )
+        
+    
     if policy == "CnnPolicy":
-        policy_kwargs = dict(
-            features_extractor_class=SmallCNNSB3,
-            features_extractor_kwargs=dict(out_dim=512),
-            net_arch=dict(pi=[256, 128], vf=[256, 128]),
-            activation_fn=th.nn.ReLU,
-            normalize_images=False,
-        )
+        if obs_mode == "rgb":
+            policy_kwargs = dict(
+                features_extractor_class=ResNetFeatureExtractor,
+                features_extractor_kwargs=dict(out_dim=512, freeze=True),  # freeze early layers
+                net_arch=dict(pi=[256, 128], vf=[256, 128]),
+                activation_fn=th.nn.ReLU,
+                normalize_images=False,
+                )
+        elif obs_mode == "grayroad":
+            policy_kwargs = dict(
+                features_extractor_class=GrayroadSmallCNN,
+                features_extractor_kwargs=dict(out_dim=256),
+                net_arch=dict(pi=[128, 64], vf=[128, 64]),
+                activation_fn=th.nn.ReLU,
+                normalize_images=False,
+            )   
+
 
     model = PPO(
         policy,
