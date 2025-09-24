@@ -28,6 +28,10 @@ class DrivingMetricsCallback(BaseCallback):
         # Collect per-episode metrics when environments terminate.
         for done, info in zip(dones, infos):
             if done:
+                episode_data = info.get("episode")
+                if episode_data:
+                    self.logger.record("custom/episode_reward", float(episode_data.get("r", 0.0)))
+                    self.logger.record("custom/episode_length", float(episode_data.get("l", 0.0)))
                 if "success" in info:
                     self.episode_successes.append(float(info["success"]))
                 if "lane_deviation" in info:
@@ -40,8 +44,8 @@ class DrivingMetricsCallback(BaseCallback):
         if ep_info_buffer and len(ep_info_buffer) > 0:
             mean_r = np.mean([ep.get("r", 0.0) for ep in ep_info_buffer])
             mean_len = np.mean([ep.get("l", 0.0) for ep in ep_info_buffer])
-            self.logger.record("custom/episode_reward", float(mean_r))
-            self.logger.record("custom/episode_length", float(mean_len))
+            self.logger.record("custom/episode_reward_mean", float(mean_r))
+            self.logger.record("custom/episode_length_mean", float(mean_len))
 
         if self.episode_successes:
             self.logger.record("custom/episode_success_rate", float(np.mean(self.episode_successes)))

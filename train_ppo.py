@@ -8,6 +8,7 @@ import numpy as np
 import torch as th
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from callbacks import DrivingMetricsCallback
 from cnn_extractors import SmallCNNSB3, ResNetFeatureExtractor, GrayroadSmallCNN
@@ -22,13 +23,21 @@ from common_utils import (
 from make_env import make_env
 
 
+# --- Schedules ---
+def linear_schedule(start: float, end: float):
+    def _fn(progress_remaining: float):  # 1.0 → 0.0
+        return end + (start - end) * progress_remaining
+    return _fn
+
+
 def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
                    timesteps: int, eval_episodes: int, seed: int,
                    town: str = None, route: str = None, out_dir: str = ".",
                    render: bool = False, render_freq: int = 1,
                    checkpoint_freq: int = 0, checkpoint_dir: Optional[str] = None):
     def _make():
-        return make_env(env_kind, obs_mode, action_space, STEER_BINS, seed=seed, show_cam=render)
+        env = make_env(env_kind, obs_mode, action_space, STEER_BINS, seed=seed, show_cam=render)
+        return Monitor(env)
     vec = DummyVecEnv([_make])
 
     policy = choose_policy_for_obs_space(vec.observation_space)
@@ -65,21 +74,43 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
             )   
 
 
+    # model = PPO(
+    #     policy,
+    #     vec,
+    #     verbose=1,
+    #     seed=seed,
+    #     n_steps=2048,
+    #     batch_size=32,
+    #     gae_lambda=0.95,
+    #     gamma=0.99,
+    #     n_epochs=10,
+    #     learning_rate=3e-4,
+    #     clip_range=0.2,
+    #     tensorboard_log=os.path.join(out_dir, "tb_logs_ppo"),
+    #     policy_kwargs=policy_kwargs if policy_kwargs else None,
+    # )
+    
+    # Schedules (you can branch by obs_mode if you want per-modality LR)
+    lr_schedule   = linear_schedule(2.5e-4, 5e-5)
+    clip_schedule = linear_schedule(0.20, 0.10)
+
     model = PPO(
         policy,
         vec,
         verbose=1,
         seed=seed,
-        n_steps=2048,
-        batch_size=32,
+        n_steps=1024,
+        batch_size=256,
         gae_lambda=0.95,
         gamma=0.99,
-        n_epochs=10,
-        learning_rate=3e-4,
-        clip_range=0.2,
+        n_epochs=4,
+        learning_rate=lr_schedule,
+        clip_range=clip_schedule,
+        target_kl=0.02,          # <- new: guardrail on policy updates
         tensorboard_log=os.path.join(out_dir, "tb_logs_ppo"),
         policy_kwargs=policy_kwargs if policy_kwargs else None,
     )
+
     callbacks = []
     if render:
         callbacks.append(LiveRenderCallback(vec, freq=render_freq))

@@ -4,8 +4,11 @@ import argparse
 import os
 import numpy as np
 from typing import Optional
+import torch as th
+import torch as th
 from stable_baselines3 import DQN
 from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from common_utils import (
     STEER_BINS,
@@ -14,6 +17,7 @@ from common_utils import (
     StepTimer,
     LiveRenderCallback,
 )
+from cnn_extractors import SmallCNNSB3, ResNetFeatureExtractor, GrayroadSmallCNN
 from make_env import make_env
 
 def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: int, seed: int,
@@ -22,10 +26,30 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
     assert obs_mode in ("rgb","grayroad")
     # DQN only supports discrete actions
     def _make():
-        return make_env(env_kind, obs_mode, "disc", STEER_BINS, seed=seed, show_cam=render)
+        env = make_env(env_kind, obs_mode, "disc", STEER_BINS, seed=seed, show_cam=render)
+        return Monitor(env)
     vec = DummyVecEnv([_make])
     policy = choose_policy_for_obs_space(vec.observation_space)
     print(f"[INFO] DQN Policy: {policy} | Obs: {obs_mode} | Action: disc")
+
+    policy_kwargs = {}
+    if policy == "CnnPolicy":
+        if obs_mode == "rgb":
+            policy_kwargs = dict(
+                features_extractor_class=ResNetFeatureExtractor,
+                features_extractor_kwargs=dict(out_dim=512, freeze=True),
+                net_arch=[256, 128],
+                activation_fn=th.nn.ReLU,
+                normalize_images=False,
+            )
+        else:  # grayroad
+            policy_kwargs = dict(
+                features_extractor_class=GrayroadSmallCNN,
+                features_extractor_kwargs=dict(out_dim=256),
+                net_arch=[128, 64],
+                activation_fn=th.nn.ReLU,
+                normalize_images=False,
+            )
 
     model = DQN(
         policy,
@@ -42,6 +66,7 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
         exploration_fraction=0.4,
         exploration_final_eps=0.05,
         tensorboard_log=os.path.join(out_dir, "tb_logs_dqn"),
+        policy_kwargs=policy_kwargs if policy_kwargs else None,
     )
     callbacks = []
     if render:
