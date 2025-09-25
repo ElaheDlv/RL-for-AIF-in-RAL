@@ -11,7 +11,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from callbacks import DrivingMetricsCallback
-from cnn_extractors import SmallCNNSB3, ResNetFeatureExtractor, GrayroadSmallCNN
+from cnn_extractors import ResNetFeatureExtractor, GrayroadSmallCNN
 
 from common_utils import (
     STEER_BINS,
@@ -59,7 +59,7 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         if obs_mode == "rgb":
             policy_kwargs = dict(
                 features_extractor_class=ResNetFeatureExtractor,
-                features_extractor_kwargs=dict(out_dim=512, freeze=True),  # freeze early layers
+                features_extractor_kwargs=dict(out_dim=512, freeze=False),
                 net_arch=dict(pi=[256, 128], vf=[256, 128]),
                 activation_fn=th.nn.ReLU,
                 normalize_images=False,
@@ -74,24 +74,7 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
             )   
 
 
-    # model = PPO(
-    #     policy,
-    #     vec,
-    #     verbose=1,
-    #     seed=seed,
-    #     n_steps=2048,
-    #     batch_size=32,
-    #     gae_lambda=0.95,
-    #     gamma=0.99,
-    #     n_epochs=10,
-    #     learning_rate=3e-4,
-    #     clip_range=0.2,
-    #     tensorboard_log=os.path.join(out_dir, "tb_logs_ppo"),
-    #     policy_kwargs=policy_kwargs if policy_kwargs else None,
-    # )
-    
-    # Schedules (you can branch by obs_mode if you want per-modality LR)
-    lr_schedule   = linear_schedule(2.5e-4, 5e-5)
+    lr_schedule   = linear_schedule(1e-4, 5e-5)
     clip_schedule = linear_schedule(0.20, 0.10)
 
     model = PPO(
@@ -100,13 +83,14 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         verbose=1,
         seed=seed,
         n_steps=1024,
-        batch_size=256,
+        batch_size=64,
         gae_lambda=0.95,
         gamma=0.99,
-        n_epochs=4,
+        n_epochs=10,
         learning_rate=lr_schedule,
         clip_range=clip_schedule,
         target_kl=0.02,          # <- new: guardrail on policy updates
+        ent_coef=0.01,
         tensorboard_log=os.path.join(out_dir, "tb_logs_ppo"),
         policy_kwargs=policy_kwargs if policy_kwargs else None,
     )
