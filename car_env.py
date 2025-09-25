@@ -194,48 +194,35 @@ class CarEnv(gym.Env):
         self.world.tick()
         obs = self._get_obs()
         # --- reward components ---
-        lane_penalty = float(abs(self._lane_deviation()))
+        lane_dev = float(self._lane_deviation())
         yaw_err = float(abs(self._heading_error()))
         steer_rate = float(abs(steer - self.prev_steer))
         self.prev_steer = steer
 
-        goal_distance = self._goal_distance()
-        delta_goal = 0.0
-        if goal_distance is not None and self.prev_goal_distance is not None:
-            delta_goal = max(self.prev_goal_distance - goal_distance, 0.0)
-        self.prev_goal_distance = goal_distance
-
-        w_d, w_psi, w_s, w_prog = 1.0, 0.3, 0.02, 0.4
+        base_reward = 0.2
         reward = (
-            -w_d * lane_penalty
-            -w_psi * yaw_err
-            -w_s * steer_rate
-            +w_prog * delta_goal
+            base_reward
+            - 1.0 * min(lane_dev, 2.0)
+            - 0.3 * min(yaw_err, 0.3)
+            - 0.02 * steer_rate
         )
-        reward -= 0.02  # time penalty
 
         terminated = False
         truncated = False
         info = {
-            "lane_deviation": lane_penalty,
+            "lane_deviation": lane_dev,
             "yaw_error": yaw_err,
             "steer_rate": steer_rate,
-            "progress": delta_goal,
-            "goal_distance": float(goal_distance) if goal_distance is not None else None,
             "success": False,
         }
 
-        if lane_penalty > 2.0:
-            reward -= 10.0
-            terminated = True
-
-        if goal_distance is not None and goal_distance <= self.route_goal_tolerance:
-            reward += 20.0
-            info["success"] = True
+        if lane_dev > 2.0:
+            reward -= 5.0
             terminated = True
 
         if self.t >= self.max_steps:
             terminated = True
+            info["success"] = lane_dev < 0.5
 
         return obs, reward, terminated, truncated, info
     # -------- Helpers --------

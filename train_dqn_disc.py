@@ -37,7 +37,7 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
         if obs_mode == "rgb":
             policy_kwargs = dict(
                 features_extractor_class=ResNetFeatureExtractor,
-                features_extractor_kwargs=dict(out_dim=512, freeze=False),
+                features_extractor_kwargs=dict(out_dim=512, freeze=True),  # set freeze=False to fine-tune
                 net_arch=[256, 128],
                 activation_fn=th.nn.ReLU,
                 normalize_images=False,
