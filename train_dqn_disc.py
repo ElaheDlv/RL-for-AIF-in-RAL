@@ -1,9 +1,12 @@
 
 #!/usr/bin/env python3
 import argparse
+import hashlib
+import json
 import os
+import re
 import numpy as np
-from typing import Optional
+from typing import Dict, Optional
 import torch as th
 import torch as th
 from stable_baselines3 import DQN
@@ -22,7 +25,9 @@ from make_env import make_env
 
 def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: int, seed: int,
                    out_dir: str = ".", render: bool = False, render_freq: int = 1,
-                   checkpoint_freq: int = 0, checkpoint_dir: Optional[str] = None):
+                   checkpoint_freq: int = 0, checkpoint_dir: Optional[str] = None,
+                   dqn_kwargs: Optional[Dict] = None,
+                   run_name: Optional[str] = None):
     assert obs_mode in ("rgb","grayroad")
     # DQN only supports discrete actions
     def _make():
@@ -51,9 +56,50 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
                 normalize_images=False,
             )
 
-    model = DQN(
-        policy,
-        vec,
+    def _sanitize_tag(text: str) -> str:
+        text = text.strip()
+        text = re.sub(r"[^0-9a-zA-Z._-]+", "-", text)
+        return text.strip("-_") or "run"
+
+    def _config_suffix(config: Optional[Dict]) -> str:
+        if not config:
+            return "cfg-default"
+        try:
+            payload = json.dumps(config, sort_keys=True, default=str)
+        except TypeError:
+            payload = repr(config)
+        digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()[:8]
+        return f"cfg-{digest}"
+
+    def _merge_policy_kwargs(base: Optional[Dict], override: Optional[Dict]) -> Optional[Dict]:
+        if base is None:
+            base = {}
+        if not override:
+            return base if base else None
+        merged = dict(base)
+        for key, value in override.items():
+            if isinstance(value, dict) and isinstance(merged.get(key), dict):
+                inner = dict(merged[key])
+                inner.update(value)
+                merged[key] = inner
+            else:
+                merged[key] = value
+        return merged
+
+    config_suffix = _config_suffix(dqn_kwargs)
+    if run_name:
+        log_tag = _sanitize_tag(run_name)
+    else:
+        log_tag = _sanitize_tag(
+            f"{env_kind}-{obs_mode}-disc-steps{timesteps}-seed{seed}-{config_suffix}"
+        )
+
+    tensorboard_dir = os.path.join(out_dir, "tb_logs", log_tag)
+    os.makedirs(os.path.dirname(tensorboard_dir), exist_ok=True)
+
+    algo_kwargs = dict(
+        policy=policy,
+        env=vec,
         verbose=1,
         seed=seed,
         learning_rate=1e-3,
@@ -65,9 +111,20 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
         target_update_interval=5_000,
         exploration_fraction=0.4,
         exploration_final_eps=0.05,
-        tensorboard_log=os.path.join(out_dir, "tb_logs_dqn"),
-        policy_kwargs=policy_kwargs if policy_kwargs else None,
+        tensorboard_log=tensorboard_dir,
     )
+    if policy_kwargs:
+        algo_kwargs["policy_kwargs"] = policy_kwargs
+
+    if dqn_kwargs:
+        dqn_kwargs = dict(dqn_kwargs)
+        policy_kw_override = dqn_kwargs.pop("policy_kwargs", None)
+        if policy_kw_override:
+            existing = algo_kwargs.get("policy_kwargs")
+            algo_kwargs["policy_kwargs"] = _merge_policy_kwargs(existing, policy_kw_override)
+        algo_kwargs.update(dqn_kwargs)
+
+    model = DQN(**algo_kwargs)
     callbacks = []
     if render:
         callbacks.append(LiveRenderCallback(vec, freq=render_freq))
@@ -87,7 +144,7 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
     if hasattr(vec, "close"):
         vec.close()
 
-    save_tag = f"dqn_{env_kind}_{obs_mode}_disc.zip"
+    save_tag = f"dqn_{log_tag}.zip"
     save_path = os.path.join(out_dir, save_tag)
     model.save(save_path)
     print(f"[INFO] Saved model to {save_path}")
@@ -135,6 +192,15 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
             w.writerow(header)
         w.writerow(row)
     print(f"[INFO] Appended results to {csv_path}")
+
+    return {
+        "success_rate": success_rate,
+        "avg_deviation_m": avg_dev,
+        "fps": timer.mean_fps,
+        "latency_ms": timer.mean_latency_ms,
+        "timesteps": timesteps,
+        "log_tag": log_tag,
+    }
 
 def main():
     ap = argparse.ArgumentParser()

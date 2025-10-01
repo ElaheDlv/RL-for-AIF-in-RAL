@@ -1,8 +1,11 @@
 
 #!/usr/bin/env python3
 import argparse
+import hashlib
+import json
 import os
-from typing import List, Optional
+import re
+from typing import Dict, List, Optional
 
 import numpy as np
 import torch as th
@@ -34,7 +37,9 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
                    timesteps: int, eval_episodes: int, seed: int,
                    town: str = None, route: str = None, out_dir: str = ".",
                    render: bool = False, render_freq: int = 1,
-                   checkpoint_freq: int = 0, checkpoint_dir: Optional[str] = None):
+                   checkpoint_freq: int = 0, checkpoint_dir: Optional[str] = None,
+                   ppo_kwargs: Optional[Dict] = None,
+                   run_name: Optional[str] = None):
     def _make():
         env = make_env(env_kind, obs_mode, action_space, STEER_BINS, seed=seed, show_cam=render)
         return Monitor(env)
@@ -77,9 +82,50 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
     lr_schedule   = linear_schedule(1e-4, 5e-5)
     clip_schedule = linear_schedule(0.20, 0.10)
 
-    model = PPO(
-        policy,
-        vec,
+    def _sanitize_tag(text: str) -> str:
+        text = text.strip()
+        text = re.sub(r"[^0-9a-zA-Z._-]+", "-", text)
+        return text.strip("-_") or "run"
+
+    def _config_suffix(config: Optional[Dict]) -> str:
+        if not config:
+            return "cfg-default"
+        try:
+            payload = json.dumps(config, sort_keys=True, default=str)
+        except TypeError:
+            payload = repr(config)
+        digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()[:8]
+        return f"cfg-{digest}"
+
+    def _merge_policy_kwargs(base: Optional[Dict], override: Optional[Dict]) -> Optional[Dict]:
+        if base is None:
+            base = {}
+        if not override:
+            return base if base else None
+        merged = dict(base)
+        for key, value in override.items():
+            if isinstance(value, dict) and isinstance(merged.get(key), dict):
+                inner = dict(merged[key])
+                inner.update(value)
+                merged[key] = inner
+            else:
+                merged[key] = value
+        return merged
+
+    config_suffix = _config_suffix(ppo_kwargs)
+    if run_name:
+        log_tag = _sanitize_tag(run_name)
+    else:
+        log_tag = _sanitize_tag(
+            f"{env_kind}-{obs_mode}-{action_space}-steps{timesteps}-seed{seed}-{config_suffix}"
+        )
+
+    tensorboard_dir = os.path.join(out_dir, "tb_logs", log_tag)
+    os.makedirs(os.path.dirname(tensorboard_dir), exist_ok=True)
+
+    algo_kwargs = dict(
+        policy=policy,
+        env=vec,
         verbose=1,
         seed=seed,
         n_steps=1024,
@@ -89,11 +135,22 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         n_epochs=10,
         learning_rate=lr_schedule,
         clip_range=clip_schedule,
-        target_kl=0.02,          # <- new: guardrail on policy updates
+        target_kl=0.02,          # guardrail on policy updates
         ent_coef=0.01,
-        tensorboard_log=os.path.join(out_dir, "tb_logs_ppo"),
-        policy_kwargs=policy_kwargs if policy_kwargs else None,
+        tensorboard_log=tensorboard_dir,
     )
+    if policy_kwargs:
+        algo_kwargs["policy_kwargs"] = policy_kwargs
+
+    if ppo_kwargs:
+        ppo_kwargs = dict(ppo_kwargs)  # shallow copy so callers can reuse dicts
+        policy_kw_override = ppo_kwargs.pop("policy_kwargs", None)
+        if policy_kw_override:
+            existing = algo_kwargs.get("policy_kwargs")
+            algo_kwargs["policy_kwargs"] = _merge_policy_kwargs(existing, policy_kw_override)
+        algo_kwargs.update(ppo_kwargs)
+
+    model = PPO(**algo_kwargs)
 
     callbacks = []
     if render:
@@ -124,7 +181,7 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         vec.close()
 
 
-    save_tag = f"ppo_{env_kind}_{obs_mode}_{action_space}.zip"
+    save_tag = f"ppo_{log_tag}.zip"
     save_path = os.path.join(out_dir, save_tag)
     model.save(save_path)
     print(f"[INFO] Saved model to {save_path}")
@@ -177,6 +234,15 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
             w.writerow(header)
         w.writerow(row)
     print(f"[INFO] Appended results to {csv_path}")
+
+    return {
+        "success_rate": success_rate,
+        "avg_deviation_m": avg_dev,
+        "fps": timer.mean_fps,
+        "latency_ms": timer.mean_latency_ms,
+        "timesteps": timesteps,
+        "log_tag": log_tag,
+    }
 
 def main():
     ap = argparse.ArgumentParser()
