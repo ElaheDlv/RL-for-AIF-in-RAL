@@ -32,6 +32,8 @@ python train_ppo.py --env carla --obs rgb --action cont --timesteps 2000000 --ev
 # Continuous steering in [-1,1], GrayRoad
 python train_ppo.py --env carla --obs grayroad --action cont --timesteps 2000000 --eval-episodes 12 --out runs/ppo_cont_gray
 # Add `--render --render-freq 1` to any command above to watch the live CARLA camera during training.
+
+python train_ppo.py --env carla --obs rgb --action disc --timesteps 8000000 --eval-episodes 12 --out runs/ppo_disc_rgb --render --render-freq 1
 ```
 Note: For `--obs rgb`, PPO now uses a ResNet18 backbone pretrained on ImageNet (with frozen early layers).
 For `--obs grayroad`, PPO uses a smaller custom CNN trained from scratch, optimized for binary road masks.
