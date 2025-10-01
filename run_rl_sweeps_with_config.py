@@ -33,6 +33,8 @@ class Experiment:
     notes: str = ""
     render: bool = True
     render_freq: int = 1
+    carla_host: str = "localhost"
+    carla_port: int = 2000
 
 
 def _sanitize_tag(text: str) -> str:
@@ -167,6 +169,8 @@ SUMMARY_FIELDS = [
     "action",
     "render",
     "render_freq",
+    "carla_host",
+    "carla_port",
     "timesteps",
     "eval_episodes",
     "seed",
@@ -331,10 +335,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-render", dest="render", action="store_false", help="Disable rendering for all experiments")
     parser.set_defaults(render=None)
     parser.add_argument("--render-freq", type=int, default=None, help="Override render frequency for all experiments")
+    parser.add_argument("--carla-host", default=None, help="Override CARLA host for all experiments")
+    parser.add_argument("--carla-port", type=int, default=None, help="Override CARLA port for all experiments")
     return parser.parse_args()
 
 
-def build_run_tag(exp: Experiment, env_kind: str, render: bool, render_freq: int) -> str:
+def build_run_tag(
+    exp: Experiment,
+    env_kind: str,
+    render: bool,
+    render_freq: int,
+    carla_host: str,
+    carla_port: int,
+) -> str:
     parts = [
         _sanitize_tag(exp.name),
         exp.algo,
@@ -345,6 +358,8 @@ def build_run_tag(exp: Experiment, env_kind: str, render: bool, render_freq: int
         f"seed-{exp.seed}",
         f"render-{int(bool(render))}",
         f"rfreq-{render_freq}",
+        f"host-{_sanitize_tag(carla_host)}",
+        f"port-{carla_port}",
     ]
     if exp.algo_kwargs:
         parts.append(f"cfg-{_hash_config(exp.algo_kwargs)}")
@@ -377,8 +392,10 @@ def main() -> None:
         env_kind = args.env or exp.env_kind
         render_flag = exp.render if args.render is None else args.render
         render_freq = exp.render_freq if args.render_freq is None else max(1, args.render_freq)
+        carla_host = args.carla_host if args.carla_host is not None else exp.carla_host
+        carla_port = args.carla_port if args.carla_port is not None else exp.carla_port
 
-        run_tag = build_run_tag(exp, env_kind, render_flag, render_freq)
+        run_tag = build_run_tag(exp, env_kind, render_flag, render_freq, carla_host, carla_port)
         run_dir = out_root / run_tag
         run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -405,6 +422,8 @@ def main() -> None:
                 "algo_kwargs": exp.algo_kwargs,
                 "render": render_flag,
                 "render_freq": render_freq,
+                "carla_host": carla_host,
+                "carla_port": carla_port,
                 "notes": exp.notes,
             }
             with (run_dir / "config.json").open("w") as cfg_f:
@@ -424,6 +443,8 @@ def main() -> None:
                     render=render_flag,
                     render_freq=render_freq,
                     run_name=run_tag,
+                    carla_host=carla_host,
+                    carla_port=carla_port,
                 )
             elif exp.algo == "dqn":
                 metrics = train_dqn_and_eval(
@@ -438,6 +459,8 @@ def main() -> None:
                     render=render_flag,
                     render_freq=render_freq,
                     run_name=run_tag,
+                    carla_host=carla_host,
+                    carla_port=carla_port,
                 )
             else:
                 raise ValueError(f"Unknown algo '{exp.algo}' in experiment {exp.name}")
@@ -470,6 +493,8 @@ def main() -> None:
             "action": exp.action,
             "render": "true" if render_flag else "false",
             "render_freq": str(render_freq),
+            "carla_host": carla_host,
+            "carla_port": str(carla_port),
             "timesteps": str(metrics.get("timesteps", exp.timesteps)),
             "eval_episodes": str(exp.eval_episodes),
             "seed": str(exp.seed),
