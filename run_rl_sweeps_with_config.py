@@ -36,8 +36,6 @@ class Experiment:
     render: bool = True
     render_freq: int = 1
     carla_host: str = "localhost"
-    carla_port: int = 2020
-    carla_host: str = "localhost"
     carla_port: int = 2000
 
 
@@ -76,6 +74,48 @@ def _resolve_checkpoint_dir(run_dir: Path, template: Optional[str], run_tag: str
             return (run_dir / path).resolve()
         return path
     return run_dir / "checkpoints"
+
+
+def _format_hparam(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
+        return f"{value:.6g}".replace(".", "p")
+    if isinstance(value, (int, str)):
+        text = str(value).strip()
+        return text if text else None
+    return None
+
+
+def _build_model_basename(exp: Experiment) -> str:
+    parts = [
+        _sanitize_tag(exp.name),
+        exp.algo,
+        f"obs-{_sanitize_tag(exp.obs_mode)}",
+        f"act-{_sanitize_tag(exp.action)}",
+        f"steps-{exp.timesteps}",
+        f"seed-{exp.seed}",
+    ]
+
+    algo_params = exp.algo_kwargs or {}
+    key_map = [
+        ("lr", "learning_rate"),
+        ("batch", "batch_size"),
+        ("nsteps", "n_steps"),
+        ("trainfreq", "train_freq"),
+        ("buffer", "buffer_size"),
+        ("explore", "exploration_fraction"),
+    ]
+
+    for label, key in key_map:
+        value = algo_params.get(key)
+        formatted = _format_hparam(value)
+        if formatted is not None:
+            parts.append(_sanitize_tag(f"{label}-{formatted}"))
+
+    return "__".join(parts)
 
 
 def _default_experiment_kwargs() -> Dict[str, Any]:
@@ -228,119 +268,11 @@ def _json_dumps(data: Dict[str, Any]) -> str:
     return json.dumps(data, sort_keys=True, default=str)
 
 
-# --- Define your sweep here ---
-EXPERIMENTS: List[Experiment] = [
-    # PPO on RGB: longer training baseline (defaults but 4M steps)
-    Experiment(
-        name="ppo_rgb_disc_long_baseline",
-        algo="ppo",
-        obs_mode="rgb",
-        action="disc",
-        timesteps=4_000_000,
-        notes="Default hyperparameters, extended training horizon",
-    ),
-    # PPO on RGB: larger batches, unfreeze ResNet
-    Experiment(
-        name="ppo_rgb_disc_large_batch_unfreeze",
-        algo="ppo",
-        obs_mode="rgb",
-        action="disc",
-        timesteps=4_000_000,
-        algo_kwargs={
-            "n_steps": 2048,
-            "batch_size": 256,
-            "n_epochs": 6,
-            "gae_lambda": 0.97,
-            "target_kl": 0.03,
-            "learning_rate": 3e-4,
-            "policy_kwargs": {
-                "features_extractor_kwargs": {"freeze": False},
-                "net_arch": dict(pi=[512, 256], vf=[512, 256]),
-            },
-        },
-        notes="Bigger rollout batch and policy head, ResNet fine-tuning enabled",
-    ),
-    # PPO on grayscale: deeper CNN and more entropy regularisation
-    Experiment(
-        name="ppo_gray_disc_deeper_entropy",
-        algo="ppo",
-        obs_mode="grayroad",
-        action="disc",
-        timesteps=3_000_000,
-        algo_kwargs={
-            "n_steps": 1536,
-            "batch_size": 128,
-            "learning_rate": 7e-5,
-            "gae_lambda": 0.97,
-            "ent_coef": 0.02,
-            "policy_kwargs": {
-                "features_extractor_kwargs": {"out_dim": 384},
-                "net_arch": dict(pi=[256, 128], vf=[256, 128]),
-            },
-        },
-        notes="Gray-road encoder widened with higher entropy weight",
-    ),
-    # PPO continuous control example for RGB
-    Experiment(
-        name="ppo_rgb_cont_long_clip10",
-        algo="ppo",
-        obs_mode="rgb",
-        action="cont",
-        timesteps=4_000_000,
-        algo_kwargs={
-            "n_steps": 1024,
-            "batch_size": 128,
-            "clip_range": 0.1,
-            "learning_rate": 1.5e-4,
-            "gae_lambda": 0.9,
-        },
-        notes="Continuous steering with tighter clip range",
-    ),
-    # DQN on RGB: larger replay and slower epsilon decay
-    Experiment(
-        name="dqn_rgb_large_buffer_slow_eps",
-        algo="dqn",
-        obs_mode="rgb",
-        timesteps=2_500_000,
-        algo_kwargs={
-            "learning_rate": 5e-4,
-            "buffer_size": 200_000,
-            "learning_starts": 20_000,
-            "target_update_interval": 2_000,
-            "exploration_fraction": 0.6,
-            "policy_kwargs": {
-                "net_arch": [512, 256],
-            },
-        },
-        notes="RGB DQN with larger network and replay buffer",
-    ),
-    # DQN on GrayRoad: lower LR, deeper head, faster target sync
-    Experiment(
-        name="dqn_gray_low_lr_fast_target",
-        algo="dqn",
-        obs_mode="grayroad",
-        timesteps=2_000_000,
-        algo_kwargs={
-            "learning_rate": 2e-4,
-            "train_freq": 8,
-            "target_update_interval": 2_500,
-            "exploration_fraction": 0.35,
-            "exploration_final_eps": 0.02,
-            "policy_kwargs": {
-                "features_extractor_kwargs": {"out_dim": 384},
-                "net_arch": [256, 128],
-            },
-        },
-        notes="Gray-road DQN with wider features and tighter epsilon",
-    ),
-]
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a suite of RL training experiments")
     parser.add_argument("--out", default="runs/sweeps", help="Directory to store experiment outputs")
     parser.add_argument("--env", default=None, help="Override env kind for all experiments (default: each experiment setting)")
-    parser.add_argument("--config", default=None, help="Path to a JSON config file describing experiments")
+    parser.add_argument("--config", required=True, help="Path to a JSON config file describing experiments")
     parser.add_argument(
         "--only",
         nargs="*",
@@ -393,10 +325,7 @@ def build_run_tag(
 
 def main() -> None:
     args = parse_args()
-    if args.config:
-        experiments_source = _load_experiments_from_config(Path(args.config))
-    else:
-        experiments_source = list(EXPERIMENTS)
+    experiments_source = _load_experiments_from_config(Path(args.config))
 
     if args.list:
         for exp in experiments_source:
@@ -528,8 +457,11 @@ def main() -> None:
         model_filename = f"{exp.algo}_{run_tag}.zip"
         model_path = run_dir / model_filename
         if model_path.exists():
-            final_model_path = run_dir / "final_model.zip"
-            shutil.copy2(model_path, final_model_path)
+            model_basename = _build_model_basename(exp)
+            final_model_path = run_dir / f"{model_basename}.zip"
+            if final_model_path.exists():
+                final_model_path.unlink()
+            shutil.move(model_path, final_model_path)
             config_manifest["final_model"] = str(final_model_path)
         else:
             config_manifest["final_model"] = None
