@@ -1,0 +1,167 @@
+{
+  "defaults": {
+    "env_kind": "carla",
+    "timesteps": 4000000,
+    "eval_episodes": 12,
+    "seed": 0,
+    "checkpoint_freq": 100000,
+    "render": true,
+    "render_freq": 2,
+    "notes": ""
+  },
+  "experiments": [
+    {
+      "name": "ppo_rgb_lr_clip",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.0001, 0.0003],
+          "clip_range": [0.1, 0.2]
+        }
+      },
+      "notes": "RGB PPO: learning rate vs clip strength"
+    },
+    {
+      "name": "ppo_rgb_rollout_batch",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "n_steps": [1024, 2048],
+          "batch_size": [64, 256]
+        }
+      },
+      "notes": "RGB PPO: rollout horizon vs minibatch size"
+    },
+    {
+      "name": "ppo_rgb_encoder",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "policy_kwargs": {
+            "features_extractor_kwargs": {
+              "freeze": [true, false]
+            },
+            "net_arch": [
+              {"pi": [256, 128], "vf": [256, 128]},
+              {"pi": [512, 256], "vf": [512, 256]}
+            ]
+          }
+        }
+      },
+      "notes": "RGB PPO: encoder fine-tuning and head capacity"
+    },
+    {
+      "name": "ppo_gray_lr_entropy",
+      "algo": "ppo",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.00007, 0.0001],
+          "ent_coef": [0.01, 0.02]
+        }
+      },
+      "notes": "Gray-road PPO: learning rate vs entropy bonus"
+    },
+    {
+      "name": "ppo_gray_rollout",
+      "algo": "ppo",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "n_steps": [1024, 1536],
+          "batch_size": [64, 128]
+        }
+      },
+      "notes": "Gray-road PPO: rollout horizon vs batch size"
+    },
+    {
+      "name": "ppo_gray_encoder",
+      "algo": "ppo",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "policy_kwargs": {
+            "features_extractor_kwargs": {
+              "out_dim": [256, 384]
+            },
+            "net_arch": [
+              {"pi": [128, 64], "vf": [128, 64]},
+              {"pi": [256, 128], "vf": [256, 128]}
+            ]
+          }
+        }
+      },
+      "notes": "Gray-road PPO: encoder width and head depth"
+    },
+    {
+      "name": "ppo_rgb_continuous",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "cont",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.0001, 0.0002],
+          "gae_lambda": [0.9, 0.95]
+        }
+      },
+      "notes": "RGB PPO continuous control: LR vs GAE"
+    },
+    {
+      "name": "dqn_rgb_core",
+      "algo": "dqn",
+      "obs_mode": "rgb",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.001, 0.0005],
+          "buffer_size": [50000, 200000]
+        }
+      },
+      "notes": "RGB DQN: replay buffer and optimizer rate"
+    },
+    {
+      "name": "dqn_rgb_exploration",
+      "algo": "dqn",
+      "obs_mode": "rgb",
+      "param_grid": {
+        "algo_kwargs": {
+          "exploration_fraction": [0.4, 0.6],
+          "exploration_final_eps": [0.05, 0.01]
+        }
+      },
+      "notes": "RGB DQN: epsilon scheduling"
+    },
+    {
+      "name": "dqn_gray_core",
+      "algo": "dqn",
+      "obs_mode": "grayroad",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.0005, 0.0002],
+          "train_freq": [4, 8]
+        }
+      },
+      "notes": "Gray-road DQN: optimizer rate vs update cadence"
+    },
+    {
+      "name": "dqn_gray_exploration",
+      "algo": "dqn",
+      "obs_mode": "grayroad",
+      "param_grid": {
+        "algo_kwargs": {
+          "exploration_fraction": [0.35, 0.5],
+          "exploration_final_eps": [0.02, 0.05]
+        }
+      },
+      "notes": "Gray-road DQN: epsilon scheduling"
+    }
+  ]
+}
