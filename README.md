@@ -35,6 +35,9 @@ python train_ppo.py --env carla --obs grayroad --action cont --timesteps 2000000
 # Use `--carla-host` / `--carla-port` if your simulator runs on a non-default address.
 
 python train_ppo.py --env carla --obs rgb --action disc --timesteps 8000000 --eval-episodes 12 --out runs/ppo_disc_rgb --render --render-freq 1
+
+python run_rl_sweeps.py --checkpoint-freq 100000 --checkpoint-dir checkpoints
+
 ```
 Note: For `--obs rgb`, PPO now uses a ResNet18 backbone pretrained on ImageNet (with frozen early layers).
 For `--obs grayroad`, PPO uses a smaller custom CNN trained from scratch, optimized for binary road masks.

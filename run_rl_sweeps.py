@@ -243,6 +243,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run a suite of RL training experiments")
     parser.add_argument("--out", default="runs/sweeps", help="Directory to store experiment outputs")
     parser.add_argument("--env", default=None, help="Override env kind for all experiments (default: each experiment setting)")
+    parser.add_argument("--config", default=None, help="Path to a JSON config file describing experiments")
     parser.add_argument(
         "--only",
         nargs="*",
