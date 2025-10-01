@@ -37,6 +37,8 @@ def try_make_carla_env(
     show_cam: bool = False,
     routes=None,
     route_goal_tolerance: float = 5.0,
+    carla_host: str = "localhost",
+    carla_port: int = 2000,
 ):
     """
     Attempt to construct user's CarEnv with a minimal config.
@@ -56,6 +58,8 @@ def try_make_carla_env(
         "show_cam": show_cam,
         "routes": routes,
         "route_goal_tolerance": route_goal_tolerance,
+        "carla_host": carla_host,
+        "carla_port": int(carla_port),
     }
     if action_space == "cont":
         cfg["action_space"] = "continuous"
@@ -173,6 +177,8 @@ def make_env(
     show_cam: bool = False,
     routes=None,
     route_goal_tolerance: float = 5.0,
+    carla_host: str = "localhost",
+    carla_port: int = 2000,
 ):
     which = which.lower()
     if which == "carla":
@@ -184,6 +190,8 @@ def make_env(
             show_cam=show_cam,
             routes=routes,
             route_goal_tolerance=route_goal_tolerance,
+            carla_host=carla_host,
+            carla_port=carla_port,
         )
         if env is None:
             raise RuntimeError(

@@ -39,9 +39,20 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
                    render: bool = False, render_freq: int = 1,
                    checkpoint_freq: int = 0, checkpoint_dir: Optional[str] = None,
                    ppo_kwargs: Optional[Dict] = None,
-                   run_name: Optional[str] = None):
+                   run_name: Optional[str] = None,
+                   carla_host: str = "localhost",
+                   carla_port: int = 2000):
     def _make():
-        env = make_env(env_kind, obs_mode, action_space, STEER_BINS, seed=seed, show_cam=render)
+        env = make_env(
+            env_kind,
+            obs_mode,
+            action_space,
+            STEER_BINS,
+            seed=seed,
+            show_cam=render,
+            carla_host=carla_host,
+            carla_port=carla_port,
+        )
         return Monitor(env)
     vec = DummyVecEnv([_make])
 
@@ -187,7 +198,16 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
     print(f"[INFO] Saved model to {save_path}")
 
     # Evaluation
-    single_env = make_env(env_kind, obs_mode, action_space, STEER_BINS, seed=seed+123, show_cam=False)
+    single_env = make_env(
+        env_kind,
+        obs_mode,
+        action_space,
+        STEER_BINS,
+        seed=seed + 123,
+        show_cam=False,
+        carla_host=carla_host,
+        carla_port=carla_port,
+    )
     successes, deviations = [], []
     timer = StepTimer()
 
@@ -257,6 +277,8 @@ def main():
     ap.add_argument("--render-freq", type=int, default=1, help="Render every N environment steps (>=1)")
     ap.add_argument("--checkpoint-freq", type=int, default=100_000, help="Save model every N steps (0 disables)")
     ap.add_argument("--checkpoint-dir", default=None, help="Directory for checkpoints (defaults to <out>/checkpoints)")
+    ap.add_argument("--carla-host", default="localhost", help="CARLA server host")
+    ap.add_argument("--carla-port", type=int, default=2000, help="CARLA server port")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -273,6 +295,8 @@ def main():
         render_freq=args.render_freq,
         checkpoint_freq=args.checkpoint_freq,
         checkpoint_dir=checkpoint_dir,
+        carla_host=args.carla_host,
+        carla_port=args.carla_port,
     )
 
 if __name__ == "__main__":

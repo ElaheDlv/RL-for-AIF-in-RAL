@@ -36,7 +36,9 @@ class CarEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=1, shape=(H,W,C), dtype=np.float32)
 
         # Connect to CARLA
-        self.client = carla.Client("localhost", 2000)
+        host = cfg.get("carla_host", "localhost")
+        port = int(cfg.get("carla_port", 2000))
+        self.client = carla.Client(host, port)
         self.client.set_timeout(10.0)
         self.world = self.client.load_world(cfg.get("town","Town06"))
         self.bp_lib = self.world.get_blueprint_library()

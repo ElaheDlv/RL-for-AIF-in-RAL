@@ -7,7 +7,9 @@
     "checkpoint_freq": 100000,
     "render": true,
     "render_freq": 2,
-    "notes": ""
+    "notes": "",
+    "carla_host": "localhost",
+    "carla_port": 2000
   },
   "experiments": [
     {

@@ -32,6 +32,7 @@ python train_ppo.py --env carla --obs rgb --action cont --timesteps 2000000 --ev
 # Continuous steering in [-1,1], GrayRoad
 python train_ppo.py --env carla --obs grayroad --action cont --timesteps 2000000 --eval-episodes 12 --out runs/ppo_cont_gray
 # Add `--render --render-freq 1` to any command above to watch the live CARLA camera during training.
+# Use `--carla-host` / `--carla-port` if your simulator runs on a non-default address.
 
 python train_ppo.py --env carla --obs rgb --action disc --timesteps 8000000 --eval-episodes 12 --out runs/ppo_disc_rgb --render --render-freq 1
 ```
@@ -44,7 +45,8 @@ Also `--render --render-freq 1` to any command above to watch the live CARLA cam
 ```bash
 python train_dqn_disc.py --env carla --obs rgb --timesteps 300000 --eval-episodes 12 --out runs/dqn_disc_rgb
 python train_dqn_disc.py --env carla --obs grayroad --timesteps 300000 --eval-episodes 12 --out runs/dqn_disc_gray
-# Pass `--render --render-freq 1` here as well for a real-time view.
+# Pass `--render --render-freq 1` here as well for a real-time view, and `--carla-host` / `--carla-port`
+# to point at a remote CARLA server when needed.
 ```
 
 ## Route Testing
@@ -76,6 +78,8 @@ python test_rl_routes.py --algo dqn --model runs/dqn_disc_rgb/dqn_carla_rgb_disc
 # DQN discrete steering, GrayRoad observations
 python test_rl_routes.py --algo dqn --model runs/dqn_disc_gray/dqn_carla_grayroad_disc.zip \
     --obs grayroad --action disc --routes 416:252 120:45 --log-dir logs/dqn_disc_gray
+# Append `--carla-host HOST --carla-port PORT` to any command above if the CARLA simulator
+# listens on a non-default endpoint (defaults remain `localhost:2000`).
 ```
 
 ### Active Inference baseline

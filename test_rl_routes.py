@@ -28,6 +28,8 @@ def main():
     parser.add_argument("--max-steps", type=int, default=3000, help="Safety cap on steps per route")
     parser.add_argument("--out", default=None, help="Optional CSV file to append route metrics")
     parser.add_argument("--log-dir", default=None, help="Directory to store per-route trajectory CSVs")
+    parser.add_argument("--carla-host", default="localhost", help="CARLA server host")
+    parser.add_argument("--carla-port", type=int, default=2000, help="CARLA server port")
     args = parser.parse_args()
 
     if args.algo == "dqn" and args.action != "disc":
@@ -47,6 +49,8 @@ def main():
         show_cam=args.render,
         routes=routes,
         route_goal_tolerance=args.goal_tol,
+        carla_host=args.carla_host,
+        carla_port=args.carla_port,
     )
 
     base_env = getattr(env, "unwrapped", env)
