@@ -15,6 +15,9 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from callbacks import DrivingMetricsCallback
 from cnn_extractors import ResNetFeatureExtractor, GrayroadSmallCNN
+from cnn_extractors import BCNetExtractor, GrayroadExtractor
+
+
 
 from common_utils import (
     STEER_BINS,
@@ -72,22 +75,39 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         
     
     if policy == "CnnPolicy":
+        
         if obs_mode == "rgb":
+        # Example for PPO with RGB input
             policy_kwargs = dict(
-                features_extractor_class=ResNetFeatureExtractor,
-                features_extractor_kwargs=dict(out_dim=512, freeze=True),  # set freeze=False to fine-tune
-                net_arch=dict(pi=[256, 128], vf=[256, 128]),
-                activation_fn=th.nn.ReLU,
-                normalize_images=False,
-                )
+            features_extractor_class=BCNetExtractor,
+            net_arch=dict(pi=[256,128], vf=[256,128]),
+            activation_fn=th.nn.ReLU,
+            )
+            
         elif obs_mode == "grayroad":
+        # Example for PPO with GrayRoad input
             policy_kwargs = dict(
-                features_extractor_class=GrayroadSmallCNN,
-                features_extractor_kwargs=dict(out_dim=256),
-                net_arch=dict(pi=[128, 64], vf=[128, 64]),
-                activation_fn=th.nn.ReLU,
-                normalize_images=False,
-            )   
+            features_extractor_class=GrayroadExtractor,
+            net_arch=dict(pi=[128,64], vf=[128,64]),
+            activation_fn=th.nn.ReLU,
+            )
+            
+        # if obs_mode == "rgb":
+        #     policy_kwargs = dict(
+        #         features_extractor_class=ResNetFeatureExtractor,
+        #         features_extractor_kwargs=dict(out_dim=512, freeze=True),  # set freeze=False to fine-tune
+        #         net_arch=dict(pi=[256, 128], vf=[256, 128]),
+        #         activation_fn=th.nn.ReLU,
+        #         normalize_images=False,
+        #         )
+        # elif obs_mode == "grayroad":
+        #     policy_kwargs = dict(
+        #         features_extractor_class=GrayroadSmallCNN,
+        #         features_extractor_kwargs=dict(out_dim=256),
+        #         net_arch=dict(pi=[128, 64], vf=[128, 64]),
+        #         activation_fn=th.nn.ReLU,
+        #         normalize_images=False,
+        #     )   
 
 
     lr_schedule   = linear_schedule(1e-4, 5e-5)

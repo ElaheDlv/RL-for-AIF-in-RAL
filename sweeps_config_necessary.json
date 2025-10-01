@@ -1,0 +1,132 @@
+{
+  "defaults": {
+    "env_kind": "carla",
+    "timesteps": 4000000,
+    "eval_episodes": 12,
+    "seed": 0,
+    "checkpoint_freq": 100000,
+    "checkpoint_dir": "checkpoints",
+    "render": true,
+    "render_freq": 2,
+    "notes": "",
+    "carla_host": "localhost",
+    "carla_port": 2000
+  },
+  "experiments": [
+    {
+      "name": "ppo_gray_disc_core",
+      "algo": "ppo",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.0001, 0.00005, 0.0003],
+          "batch_size": [128, 64],
+          "n_steps": [2048, 1024]
+        }
+      },
+      "notes": "Gray-road PPO discrete: LR, batch, rollout"
+    },
+    {
+      "name": "ppo_gray_disc_encoder",
+      "algo": "ppo",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "policy_kwargs": {
+            "features_extractor_class": ["GrayroadExtractor"],
+            "features_extractor_kwargs": {
+              "out_dim": [128, 256]
+            },
+            "net_arch": [
+              {"pi": [256, 128], "vf": [256, 128]},
+              {"pi": [512, 256], "vf": [512, 256]}
+            ]
+          }
+        }
+      },
+      "notes": "Gray-road PPO discrete: encoder width and head depth"
+    },
+    {
+      "name": "ppo_rgb_disc_core",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.0001, 0.00005, 0.0003],
+          "batch_size": [128, 64],
+          "n_steps": [2048, 1024]
+        }
+      },
+      "notes": "RGB PPO discrete: LR, batch, rollout"
+    },
+    {
+      "name": "ppo_rgb_disc_encoder",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "policy_kwargs": {
+            "features_extractor_class": ["BCNetExtractor"],
+            "features_extractor_kwargs": {
+              "out_dim": [64]
+            },
+            "net_arch": [
+              {"pi": [256, 128], "vf": [256, 128]},
+              {"pi": [512, 256], "vf": [512, 256]}
+            ]
+          }
+        }
+      },
+      "notes": "RGB PPO discrete: encoder head depth"
+    },
+    {
+      "name": "ppo_rgb_cont_core",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "cont",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.0001, 0.00005, 0.0003],
+          "batch_size": [128, 64],
+          "n_steps": [2048, 1024],
+          "gae_lambda": [0.9, 0.95]
+        }
+      },
+      "notes": "RGB PPO continuous: LR, batch, rollout, GAE"
+    },
+    {
+      "name": "dqn_gray_disc_core",
+      "algo": "dqn",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "timesteps": 5000000,
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.001, 0.0005],
+          "batch_size": [128, 64],
+          "buffer_size": [100000, 50000],
+          "target_update_interval": [5000, 2000]
+        }
+      },
+      "notes": "Gray-road DQN discrete: LR, batch, buffer, update interval"
+    },
+    {
+      "name": "dqn_gray_disc_exploration",
+      "algo": "dqn",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "timesteps": 5000000,
+      "param_grid": {
+        "algo_kwargs": {
+          "exploration_fraction": [0.4, 0.3],
+          "exploration_final_eps": [0.05, 0.02]
+        }
+      },
+      "notes": "Gray-road DQN discrete: epsilon schedule"
+    }
+  ]
+}

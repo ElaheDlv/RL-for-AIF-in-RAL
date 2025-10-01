@@ -7,6 +7,7 @@ are appended to a top-level ``summary.csv`` for quick comparison.
 
 import argparse
 import csv
+import shutil
 import hashlib
 import json
 from dataclasses import dataclass, field
@@ -67,8 +68,8 @@ class Experiment:
     timesteps: int = 4_000_000
     eval_episodes: int = 12
     seed: int = 0
-    checkpoint_freq: int = 0
-    checkpoint_dir: Optional[str] = None
+    checkpoint_freq: int = 100_000
+    checkpoint_dir: Optional[str] = "checkpoints"
     algo_kwargs: Dict[str, Any] = field(default_factory=dict)
     notes: str = ""
     render: bool = True
@@ -91,6 +92,7 @@ SUMMARY_FIELDS = [
     "carla_port",
     "checkpoint_freq",
     "checkpoint_dir",
+    "final_model",
     "timesteps",
     "eval_episodes",
     "seed",
@@ -368,10 +370,9 @@ def main() -> None:
                 "render_freq": render_freq,
                 "carla_host": carla_host,
                 "carla_port": carla_port,
+                "final_model": None,
                 "notes": exp.notes,
             }
-            with (run_dir / "config.json").open("w") as cfg_f:
-                json.dump(config_manifest, cfg_f, indent=2, default=str)
 
             if exp.algo == "ppo":
                 metrics = train_ppo_and_eval(
@@ -429,6 +430,17 @@ def main() -> None:
                 "log_tag": run_tag,
             }
 
+        final_model_path = None
+        model_filename = f"{exp.algo}_{run_tag}.zip"
+        model_path = run_dir / model_filename
+        if model_path.exists():
+            final_model_path = run_dir / "final_model.zip"
+            shutil.copy2(model_path, final_model_path)
+            config_manifest["final_model"] = str(final_model_path)
+
+        with (run_dir / "config.json").open("w") as cfg_f:
+            json.dump(config_manifest, cfg_f, indent=2, default=str)
+
         summary_row = {
             "timestamp": datetime.utcnow().isoformat(timespec="seconds"),
             "experiment": exp.name,
@@ -443,6 +455,7 @@ def main() -> None:
             "carla_port": str(carla_port),
             "checkpoint_freq": str(checkpoint_freq),
             "checkpoint_dir": str(checkpoint_dir_path) if checkpoint_dir_path else "",
+            "final_model": str(final_model_path) if final_model_path else "",
             "timesteps": str(metrics.get("timesteps", exp.timesteps)),
             "eval_episodes": str(exp.eval_episodes),
             "seed": str(exp.seed),

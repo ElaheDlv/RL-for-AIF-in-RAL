@@ -33,6 +33,7 @@ python train_ppo.py --env carla --obs rgb --action cont --timesteps 2000000 --ev
 python train_ppo.py --env carla --obs grayroad --action cont --timesteps 2000000 --eval-episodes 12 --out runs/ppo_cont_gray
 # Add `--render --render-freq 1` to any command above to watch the live CARLA camera during training.
 # Use `--carla-host` / `--carla-port` if your simulator runs on a non-default address.
+# Sweeps default to checkpointing every 100k steps; override with `--checkpoint-freq`.
 
 python train_ppo.py --env carla --obs rgb --action disc --timesteps 8000000 --eval-episodes 12 --out runs/ppo_disc_rgb --render --render-freq 1
 
@@ -49,7 +50,8 @@ Also `--render --render-freq 1` to any command above to watch the live CARLA cam
 python train_dqn_disc.py --env carla --obs rgb --timesteps 300000 --eval-episodes 12 --out runs/dqn_disc_rgb
 python train_dqn_disc.py --env carla --obs grayroad --timesteps 300000 --eval-episodes 12 --out runs/dqn_disc_gray
 # Pass `--render --render-freq 1` here as well for a real-time view, and `--carla-host` / `--carla-port`
-# to point at a remote CARLA server when needed.
+# to point at a remote CARLA server when needed. Sweeps place intermediate checkpoints in `checkpoints/`
+# under each run directory by default.
 ```
 
 ## Route Testing

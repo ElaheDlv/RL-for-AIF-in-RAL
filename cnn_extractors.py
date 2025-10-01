@@ -9,6 +9,81 @@ import torch.nn.functional as F
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from torchvision import models
 
+
+class BCNetExtractor(BaseFeaturesExtractor):
+    """
+    CNN feature extractor for Behavioral Cloning baseline (RGB input).
+    Matches the architecture described in the paper:
+    Conv layers: 32→64→128→256, followed by 3 FC layers.
+    """
+
+    def __init__(self, observation_space: gym.spaces.Box):
+        # features_dim is the output of the final FC before policy/value heads
+        super().__init__(observation_space, features_dim=64)
+        n_input_channels = observation_space.shape[2]
+
+        self.cnn = nn.Sequential(
+            nn.Conv2d(n_input_channels, 32, kernel_size=5, stride=2), nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2), nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2), nn.ReLU(),
+            nn.Dropout2d(0.2),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2), nn.ReLU(),
+            nn.Flatten()
+        )
+
+        # Compute shape by doing one forward pass with dummy data
+        with th.no_grad():
+            sample = th.zeros(1, n_input_channels,
+                              observation_space.shape[0],
+                              observation_space.shape[1])
+            n_flatten = self.cnn(sample).shape[1]
+
+        self.fc = nn.Sequential(
+            nn.Linear(n_flatten, 512), nn.ReLU(), nn.Dropout(0.2),
+            nn.Linear(512, 128), nn.ReLU(), nn.Dropout(0.2),
+            nn.Linear(128, 64), nn.ReLU(),
+        )
+
+    def forward(self, obs: th.Tensor) -> th.Tensor:
+        if obs.shape[1] != obs.shape[-1]:  # convert NHWC → NCHW
+            obs = obs.permute(0, 3, 1, 2)
+        x = self.cnn(obs)
+        return self.fc(x)
+
+
+class GrayroadExtractor(BaseFeaturesExtractor):
+    """
+    CNN feature extractor for AIF baseline (GrayRoad semantic input).
+    Matches the smaller encoder used in AIF.
+    """
+
+    def __init__(self, observation_space: gym.spaces.Box):
+        super().__init__(observation_space, features_dim=128)
+        n_input_channels = observation_space.shape[2]
+
+        self.cnn = nn.Sequential(
+            nn.Conv2d(n_input_channels, 32, kernel_size=5, stride=2), nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2), nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2), nn.ReLU(),
+            nn.Flatten()
+        )
+
+        with th.no_grad():
+            sample = th.zeros(1, n_input_channels,
+                              observation_space.shape[0],
+                              observation_space.shape[1])
+            n_flatten = self.cnn(sample).shape[1]
+
+        self.fc = nn.Sequential(
+            nn.Linear(n_flatten, 128), nn.ReLU(),
+        )
+
+    def forward(self, obs: th.Tensor) -> th.Tensor:
+        if obs.shape[1] != obs.shape[-1]:
+            obs = obs.permute(0, 3, 1, 2)
+        x = self.cnn(obs)
+        return self.fc(x)
+
 class SmallCNNSB3(BaseFeaturesExtractor):
     """
     Small CNN feature extractor for CARLA RL baselines.
