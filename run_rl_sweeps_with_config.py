@@ -29,10 +29,13 @@ class Experiment:
     eval_episodes: int = 12
     seed: int = 0
     checkpoint_freq: int = 0
+    checkpoint_dir: Optional[str] = None
     algo_kwargs: Dict[str, Any] = field(default_factory=dict)
     notes: str = ""
     render: bool = True
     render_freq: int = 1
+    carla_host: str = "localhost"
+    carla_port: int = 2000
     carla_host: str = "localhost"
     carla_port: int = 2000
 
@@ -62,6 +65,16 @@ def _fmt_float(value: Optional[float], fmt: str) -> str:
             return ""
         return format(value, fmt)
     return str(value)
+
+
+def _resolve_checkpoint_dir(run_dir: Path, template: Optional[str], run_tag: str) -> Path:
+    if template:
+        formatted = template.format(run=run_tag)
+        path = Path(formatted)
+        if not path.is_absolute():
+            return (run_dir / path).resolve()
+        return path
+    return run_dir / "checkpoints"
 
 
 def _default_experiment_kwargs() -> Dict[str, Any]:
@@ -171,6 +184,8 @@ SUMMARY_FIELDS = [
     "render_freq",
     "carla_host",
     "carla_port",
+    "checkpoint_freq",
+    "checkpoint_dir",
     "timesteps",
     "eval_episodes",
     "seed",
@@ -337,6 +352,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--render-freq", type=int, default=None, help="Override render frequency for all experiments")
     parser.add_argument("--carla-host", default=None, help="Override CARLA host for all experiments")
     parser.add_argument("--carla-port", type=int, default=None, help="Override CARLA port for all experiments")
+    parser.add_argument("--checkpoint-freq", type=int, default=None, help="Override checkpoint frequency for all experiments")
+    parser.add_argument(
+        "--checkpoint-dir",
+        default=None,
+        help="Template for checkpoint directory (relative paths resolved inside run dir; use {run} placeholder)",
+    )
     return parser.parse_args()
 
 
@@ -347,6 +368,7 @@ def build_run_tag(
     render_freq: int,
     carla_host: str,
     carla_port: int,
+    checkpoint_freq: int,
 ) -> str:
     parts = [
         _sanitize_tag(exp.name),
@@ -360,6 +382,7 @@ def build_run_tag(
         f"rfreq-{render_freq}",
         f"host-{_sanitize_tag(carla_host)}",
         f"port-{carla_port}",
+        f"cfreq-{checkpoint_freq}",
     ]
     if exp.algo_kwargs:
         parts.append(f"cfg-{_hash_config(exp.algo_kwargs)}")
@@ -395,7 +418,18 @@ def main() -> None:
         carla_host = args.carla_host if args.carla_host is not None else exp.carla_host
         carla_port = args.carla_port if args.carla_port is not None else exp.carla_port
 
-        run_tag = build_run_tag(exp, env_kind, render_flag, render_freq, carla_host, carla_port)
+        checkpoint_freq = args.checkpoint_freq if args.checkpoint_freq is not None else exp.checkpoint_freq
+        checkpoint_template = args.checkpoint_dir if args.checkpoint_dir is not None else exp.checkpoint_dir
+
+        run_tag = build_run_tag(
+            exp,
+            env_kind,
+            render_flag,
+            render_freq,
+            carla_host,
+            carla_port,
+            checkpoint_freq,
+        )
         run_dir = out_root / run_tag
         run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -407,7 +441,12 @@ def main() -> None:
         print(f"[RUN] {exp.name} → {run_dir}")
 
         metrics = None
+        checkpoint_dir_path: Optional[Path] = None
         try:
+            if checkpoint_freq and checkpoint_freq > 0:
+                checkpoint_dir_path = _resolve_checkpoint_dir(run_dir, checkpoint_template, run_tag)
+                checkpoint_dir_path.mkdir(parents=True, exist_ok=True)
+
             config_manifest = {
                 "experiment": exp.name,
                 "run_tag": run_tag,
@@ -418,7 +457,8 @@ def main() -> None:
                 "timesteps": exp.timesteps,
                 "eval_episodes": exp.eval_episodes,
                 "seed": exp.seed,
-                "checkpoint_freq": exp.checkpoint_freq,
+                "checkpoint_freq": checkpoint_freq,
+                "checkpoint_dir": str(checkpoint_dir_path) if checkpoint_dir_path else None,
                 "algo_kwargs": exp.algo_kwargs,
                 "render": render_flag,
                 "render_freq": render_freq,
@@ -438,7 +478,8 @@ def main() -> None:
                     exp.eval_episodes,
                     exp.seed,
                     out_dir=str(run_dir),
-                    checkpoint_freq=exp.checkpoint_freq,
+                    checkpoint_freq=checkpoint_freq,
+                    checkpoint_dir=str(checkpoint_dir_path) if checkpoint_dir_path else None,
                     ppo_kwargs=exp.algo_kwargs,
                     render=render_flag,
                     render_freq=render_freq,
@@ -454,7 +495,8 @@ def main() -> None:
                     exp.eval_episodes,
                     exp.seed,
                     out_dir=str(run_dir),
-                    checkpoint_freq=exp.checkpoint_freq,
+                    checkpoint_freq=checkpoint_freq,
+                    checkpoint_dir=str(checkpoint_dir_path) if checkpoint_dir_path else None,
                     dqn_kwargs=exp.algo_kwargs,
                     render=render_flag,
                     render_freq=render_freq,
@@ -495,6 +537,8 @@ def main() -> None:
             "render_freq": str(render_freq),
             "carla_host": carla_host,
             "carla_port": str(carla_port),
+            "checkpoint_freq": str(checkpoint_freq),
+            "checkpoint_dir": str(checkpoint_dir_path) if checkpoint_dir_path else "",
             "timesteps": str(metrics.get("timesteps", exp.timesteps)),
             "eval_episodes": str(exp.eval_episodes),
             "seed": str(exp.seed),

@@ -5,6 +5,7 @@
     "eval_episodes": 12,
     "seed": 0,
     "checkpoint_freq": 100000,
+    "checkpoint_dir": "checkpoints",
     "render": true,
     "render_freq": 2,
     "notes": "",
