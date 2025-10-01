@@ -35,7 +35,7 @@ class Experiment:
     render: bool = True
     render_freq: int = 1
     carla_host: str = "localhost"
-    carla_port: int = 2000
+    carla_port: int = 2020
     carla_host: str = "localhost"
     carla_port: int = 2000
 

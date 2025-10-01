@@ -1,0 +1,33 @@
+{
+  "experiment": "dqn_gray_low_lr_fast_target",
+  "run_tag": "dqn_gray_low_lr_fast_target__dqn__obs-grayroad__act-disc__env-carla__steps-2000000__seed-0__render-1__rfreq-1__host-localhost__port-2020__cfg-d6e07977",
+  "algo": "dqn",
+  "env": "carla",
+  "obs_mode": "grayroad",
+  "action": "disc",
+  "timesteps": 2000000,
+  "eval_episodes": 12,
+  "seed": 0,
+  "checkpoint_freq": 0,
+  "algo_kwargs": {
+    "learning_rate": 0.0002,
+    "train_freq": 8,
+    "target_update_interval": 2500,
+    "exploration_fraction": 0.35,
+    "exploration_final_eps": 0.02,
+    "policy_kwargs": {
+      "features_extractor_kwargs": {
+        "out_dim": 384
+      },
+      "net_arch": [
+        256,
+        128
+      ]
+    }
+  },
+  "render": true,
+  "render_freq": 1,
+  "carla_host": "localhost",
+  "carla_port": 2020,
+  "notes": "Gray-road DQN with wider features and tighter epsilon"
+}
