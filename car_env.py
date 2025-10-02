@@ -15,8 +15,22 @@ class CarEnv(gym.Env):
         self.obs_mode = cfg.get("obs_mode", "rgb")
         self.discrete = cfg.get("discrete_actions", True)
         self.steer_bins = np.array(cfg.get("steer_bins", np.linspace(-1,1,20)))
-        default_shape = (160,160,3) if self.obs_mode == "rgb" else (160,160,1)
-        self.image_shape = cfg.get("image_shape", default_shape)
+
+        default_hw = tuple(cfg.get("camera_resolution", (160, 160)))
+        default_shape = (3, *default_hw) if self.obs_mode == "rgb" else (1, *default_hw)
+        requested_shape = cfg.get("image_shape", default_shape)
+        if len(requested_shape) != 3:
+            raise ValueError("image_shape must be a 3-tuple")
+
+        if requested_shape[0] in (1, 3):
+            channels, height, width = requested_shape
+        else:
+            height, width, channels = requested_shape
+
+        self.channels = int(channels)
+        self.height = int(height)
+        self.width = int(width)
+        self.image_shape = (self.channels, self.height, self.width)
         self.max_steps = cfg.get("max_steps", 600)
         seed = int(cfg.get("seed", 0))
         self.rng = np.random.default_rng(seed)
@@ -31,9 +45,13 @@ class CarEnv(gym.Env):
         else:
             self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
 
-        # Observation space
-        H,W,C = self.image_shape
-        self.observation_space = spaces.Box(low=0, high=1, shape=(H,W,C), dtype=np.float32)
+        # Observation space (channel-first)
+        self.observation_space = spaces.Box(
+            low=0.0,
+            high=1.0,
+            shape=self.image_shape,
+            dtype=np.float32,
+        )
 
         # Connect to CARLA
         host = cfg.get("carla_host", "localhost")
@@ -63,15 +81,15 @@ class CarEnv(gym.Env):
 
         # Always create RGB cam
         rgb_bp = self.bp_lib.find("sensor.camera.rgb")
-        rgb_bp.set_attribute("image_size_x", str(W))
-        rgb_bp.set_attribute("image_size_y", str(H))
+        rgb_bp.set_attribute("image_size_x", str(self.width))
+        rgb_bp.set_attribute("image_size_y", str(self.height))
         rgb_bp.set_attribute("fov", "100")
         self.rgb_camera = self.world.spawn_actor(rgb_bp, cam_trans, attach_to=self.vehicle)
 
         # Semantic camera (for road mask)
         sem_bp = self.bp_lib.find("sensor.camera.semantic_segmentation")
-        sem_bp.set_attribute("image_size_x", str(W))
-        sem_bp.set_attribute("image_size_y", str(H))
+        sem_bp.set_attribute("image_size_x", str(self.width))
+        sem_bp.set_attribute("image_size_y", str(self.height))
         sem_bp.set_attribute("fov", "100")
         self.sem_camera = self.world.spawn_actor(sem_bp, cam_trans, attach_to=self.vehicle)
 
@@ -105,7 +123,7 @@ class CarEnv(gym.Env):
         road = np.zeros((image.height, image.width), dtype=np.uint8)
         road[road_mask] = 255
 
-        road = cv2.resize(road, (self.image_shape[1], self.image_shape[0]))
+        road = cv2.resize(road, (self.width, self.height))
         road = (road / 255.0).astype(np.float32)
         road = np.expand_dims(road, axis=2)  # (H,W,1)
         self.grayroad_image = road
@@ -230,14 +248,33 @@ class CarEnv(gym.Env):
         return obs, reward, terminated, truncated, info
     # -------- Helpers --------
     def _get_obs(self):
+        def _ensure(obs):
+            if obs is None:
+                return None
+            arr = np.array(obs, dtype=np.float32)
+            if arr.ndim == 2:
+                arr = arr[..., np.newaxis]
+            if arr.shape[0] == self.channels and arr.shape[1] == self.height:
+                # already channel-first
+                return arr
+            if arr.shape[0] == self.height and arr.shape[1] == self.width:
+                return np.transpose(arr, (2, 0, 1))
+            raise ValueError(
+                f"Unexpected observation shape {arr.shape}; expected (H,W,C) or (C,H,W) with H={self.height}, W={self.width}, C={self.channels}"
+            )
+
         if self.obs_mode == "grayroad":
             while self.grayroad_image is None:
                 self.world.tick()
-            return self.grayroad_image
+            obs = _ensure(self.grayroad_image)
+            print("[DBG] grayroad obs shape:", obs.shape)
+            return obs
         else:
             while self.rgb_image is None:
                 self.world.tick()
-            return self.rgb_image
+            obs = _ensure(self.rgb_image)
+            print("[DBG] rgb obs shape:", obs.shape)
+            return obs
 
     def _lane_deviation(self):
         wp = self.map.get_waypoint(self.vehicle.get_location(), project_to_road=True)

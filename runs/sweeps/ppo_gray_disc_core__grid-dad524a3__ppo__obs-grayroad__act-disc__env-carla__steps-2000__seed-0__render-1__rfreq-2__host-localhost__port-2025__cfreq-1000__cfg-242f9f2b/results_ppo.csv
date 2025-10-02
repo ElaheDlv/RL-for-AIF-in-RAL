@@ -1,2 +1,0 @@
-method,obs_mode,action_space,success_rate,avg_deviation_m,fps,latency_ms,timesteps
-PPO,grayroad,disc,8.33,1.5450,330.75,3.023,2000

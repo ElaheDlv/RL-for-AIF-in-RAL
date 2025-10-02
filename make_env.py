@@ -48,8 +48,10 @@ def try_make_carla_env(
         from car_env import CarEnv  # user's env
     except Exception as e:
         return None, e
+    camera_hw = (160, 160)
     cfg = {
-        "image_shape": (160,160,1) if obs_mode=="grayroad" else (160,160,3),
+        "image_shape": (1, camera_hw[0], camera_hw[1]) if obs_mode == "grayroad" else (3, camera_hw[0], camera_hw[1]),
+        "camera_resolution": camera_hw,
         "obs_mode": obs_mode,             # expected to switch camera modality
         "discrete_actions": (action_space == "disc"),
         "steer_bins": steer_bins.tolist(),
