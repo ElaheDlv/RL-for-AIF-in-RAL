@@ -23,11 +23,11 @@ class BCNetExtractor(BaseFeaturesExtractor):
         n_input_channels = observation_space.shape[2]
 
         self.cnn = nn.Sequential(
-            nn.Conv2d(n_input_channels, 32, kernel_size=5, stride=2), nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2), nn.ReLU(),
-            nn.Conv2d(64, 128, kernel_size=3, stride=2), nn.ReLU(),
+            nn.Conv2d(n_input_channels, 32, kernel_size=5, stride=2, padding=0), nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=0), nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=0), nn.ReLU(),
             nn.Dropout2d(0.2),
-            nn.Conv2d(128, 256, kernel_size=3, stride=2), nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=0), nn.ReLU(),
             nn.Flatten()
         )
 

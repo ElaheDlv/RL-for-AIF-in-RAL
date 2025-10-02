@@ -1,0 +1,52 @@
+{
+  "defaults": {
+    "env_kind": "carla",
+    "timesteps": 2000,
+    "eval_episodes": 12,
+    "seed": 0,
+    "checkpoint_freq": 1000,
+    "checkpoint_dir": "checkpoints",
+    "render": true,
+    "render_freq": 2,
+    "notes": "",
+    "carla_host": "localhost",
+    "carla_port": 2025
+  },
+  "experiments": [
+    {
+      "name": "ppo_gray_disc_core",
+      "algo": "ppo",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.0001, 0.00005, 0.0003],
+          "batch_size": [128, 64],
+          "n_steps": [2048, 1024]
+        }
+      },
+      "notes": "Gray-road PPO discrete: LR, batch, rollout"
+    },
+    {
+      "name": "ppo_gray_disc_encoder",
+      "algo": "ppo",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "policy_kwargs": {
+            "features_extractor_class": ["GrayroadExtractor"],
+            "features_extractor_kwargs": {
+              "out_dim": [128, 256]
+            },
+            "net_arch": [
+              {"pi": [256, 128], "vf": [256, 128]},
+              {"pi": [512, 256], "vf": [512, 256]}
+            ]
+          }
+        }
+      },
+      "notes": "Gray-road PPO discrete: encoder width and head depth"
+    }
+  ]
+}

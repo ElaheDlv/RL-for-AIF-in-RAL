@@ -1,0 +1,47 @@
+{
+  "defaults": {
+    "env_kind": "carla",
+    "timesteps": 2000,
+    "eval_episodes": 12,
+    "seed": 0,
+    "checkpoint_freq": 1000,
+    "checkpoint_dir": "checkpoints",
+    "render": true,
+    "render_freq": 2,
+    "notes": "",
+    "carla_host": "localhost",
+    "carla_port": 2025
+  },
+  "experiments": [
+    {
+      "name": "dqn_gray_disc_core",
+      "algo": "dqn",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "timesteps": 5000000,
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.001, 0.0005],
+          "batch_size": [128, 64],
+          "buffer_size": [100000, 50000],
+          "target_update_interval": [5000, 2000]
+        }
+      },
+      "notes": "Gray-road DQN discrete: LR, batch, buffer, update interval"
+    },
+    {
+      "name": "dqn_gray_disc_exploration",
+      "algo": "dqn",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "timesteps": 5000000,
+      "param_grid": {
+        "algo_kwargs": {
+          "exploration_fraction": [0.4, 0.3],
+          "exploration_final_eps": [0.05, 0.02]
+        }
+      },
+      "notes": "Gray-road DQN discrete: epsilon schedule"
+    }
+  ]
+}

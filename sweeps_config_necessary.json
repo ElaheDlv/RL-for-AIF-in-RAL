@@ -1,7 +1,7 @@
 {
   "defaults": {
     "env_kind": "carla",
-    "timesteps": 4000,
+    "timesteps": 2000,
     "eval_episodes": 12,
     "seed": 0,
     "checkpoint_freq": 1000,
@@ -10,7 +10,7 @@
     "render_freq": 2,
     "notes": "",
     "carla_host": "localhost",
-    "carla_port": 2000
+    "carla_port": 2025
   },
   "experiments": [
     {
