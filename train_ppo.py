@@ -181,6 +181,30 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
             algo_kwargs["policy_kwargs"] = _merge_policy_kwargs(existing, policy_kw_override)
         algo_kwargs.update(ppo_kwargs)
 
+    def _normalize_policy_kwargs(kwargs: Optional[Dict]) -> Optional[Dict]:
+        if not kwargs:
+            return kwargs
+        extractor = kwargs.get("features_extractor_class")
+        if isinstance(extractor, str):
+            alias_map = {
+                "GrayroadSmallCNN": GrayroadSmallCNN,
+                "GrayroadExtractor": GrayroadSmallCNN,
+                "ResNetFeatureExtractor": ResNetFeatureExtractor,
+            }
+            resolved = alias_map.get(extractor)
+            if resolved is None:
+                resolved = globals().get(extractor)
+            if resolved is None:
+                raise ValueError(f"Unknown features_extractor_class '{extractor}'")
+            kwargs["features_extractor_class"] = resolved
+        return kwargs
+
+    normalized_policy_kwargs = _normalize_policy_kwargs(algo_kwargs.get("policy_kwargs"))
+    if normalized_policy_kwargs:
+        algo_kwargs["policy_kwargs"] = normalized_policy_kwargs
+    else:
+        algo_kwargs.pop("policy_kwargs", None)
+
     model = PPO(**algo_kwargs)
 
     callbacks = []
