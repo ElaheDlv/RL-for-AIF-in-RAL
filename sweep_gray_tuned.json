@@ -1,0 +1,69 @@
+{
+  "defaults": {
+    "env_kind": "carla",
+    "timesteps": 5000000,
+    "eval_episodes": 16,
+    "seed": 0,
+    "checkpoint_freq": 100000,
+    "checkpoint_dir": "checkpoints",
+    "render": false,
+    "render_freq": 5,
+    "notes": "GrayRoad PPO discrete tuning set",
+    "carla_host": "localhost",
+    "carla_port": 2000
+  },
+  "experiments": [
+    {
+      "name": "ppo_gray_disc_tuned",
+      "algo": "ppo",
+      "obs_mode": "grayroad",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": [
+          {
+            "learning_rate": 0.00012,
+            "n_steps": 2048,
+            "batch_size": 256,
+            "clip_range": 0.15,
+            "gae_lambda": 0.97,
+            "ent_coef": 0.012,
+            "target_kl": 0.02,
+            "policy_kwargs": {
+              "features_extractor_class": "GrayroadSmallCNN",
+              "features_extractor_kwargs": {"out_dim": 256},
+              "net_arch": {"pi": [256, 128], "vf": [256, 128]}
+            }
+          },
+          {
+            "learning_rate": 0.00009,
+            "n_steps": 1536,
+            "batch_size": 192,
+            "clip_range": 0.15,
+            "gae_lambda": 0.97,
+            "ent_coef": 0.016,
+            "target_kl": 0.02,
+            "policy_kwargs": {
+              "features_extractor_class": "GrayroadSmallCNN",
+              "features_extractor_kwargs": {"out_dim": 320},
+              "net_arch": {"pi": [320, 160], "vf": [320, 160]}
+            }
+          },
+          {
+            "learning_rate": 0.00007,
+            "n_steps": 1024,
+            "batch_size": 256,
+            "clip_range": 0.12,
+            "gae_lambda": 0.975,
+            "ent_coef": 0.02,
+            "target_kl": 0.015,
+            "policy_kwargs": {
+              "features_extractor_class": "GrayroadSmallCNN",
+              "features_extractor_kwargs": {"out_dim": 320},
+              "net_arch": {"pi": [384, 192], "vf": [384, 192]}
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

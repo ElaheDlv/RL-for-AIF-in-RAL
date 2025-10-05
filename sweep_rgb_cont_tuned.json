@@ -1,0 +1,55 @@
+{
+  "defaults": {
+    "env_kind": "carla",
+    "timesteps": 6000000,
+    "eval_episodes": 16,
+    "seed": 0,
+    "checkpoint_freq": 100000,
+    "checkpoint_dir": "checkpoints",
+    "render": false,
+    "render_freq": 5,
+    "notes": "RGB PPO continuous tuning set",
+    "carla_host": "localhost",
+    "carla_port": 2000
+  },
+  "experiments": [
+    {
+      "name": "ppo_rgb_cont_tuned",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "cont",
+      "param_grid": {
+        "algo_kwargs": [
+          {
+            "learning_rate": 0.0002,
+            "n_steps": 1024,
+            "batch_size": 256,
+            "clip_range": 0.2,
+            "gae_lambda": 0.95,
+            "ent_coef": 0.006,
+            "target_kl": 0.03,
+            "policy_kwargs": {
+              "features_extractor_class": "ResNetFeatureExtractor",
+              "features_extractor_kwargs": {"out_dim": 512, "freeze": true},
+              "net_arch": {"pi": [512, 256], "vf": [512, 256]}
+            }
+          },
+          {
+            "learning_rate": 0.00012,
+            "n_steps": 1536,
+            "batch_size": 384,
+            "clip_range": 0.15,
+            "gae_lambda": 0.97,
+            "ent_coef": 0.008,
+            "target_kl": 0.02,
+            "policy_kwargs": {
+              "features_extractor_class": "ResNetFeatureExtractor",
+              "features_extractor_kwargs": {"out_dim": 640, "freeze": false},
+              "net_arch": {"pi": [640, 320], "vf": [640, 320]}
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

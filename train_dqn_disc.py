@@ -20,7 +20,7 @@ from common_utils import (
     StepTimer,
     LiveRenderCallback,
 )
-from cnn_extractors import SmallCNNSB3, ResNetFeatureExtractor, GrayroadSmallCNN
+from cnn_extractors import SmallCNNSB3, ResNetFeatureExtractor, GrayroadSmallCNN, BCNetExtractor, GrayroadExtractor
 from make_env import make_env
 
 def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: int, seed: int,
@@ -29,7 +29,8 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
                    dqn_kwargs: Optional[Dict] = None,
                    run_name: Optional[str] = None,
                    carla_host: str = "localhost",
-                   carla_port: int = 2000):
+                   carla_port: int = 2000,
+                   resume_path: Optional[str] = None):
     assert obs_mode in ("rgb","grayroad")
     # DQN only supports discrete actions
     def _make():
@@ -105,8 +106,8 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
             f"{env_kind}-{obs_mode}-disc-steps{timesteps}-seed{seed}-{config_suffix}"
         )
 
-    tensorboard_dir = os.path.join(out_dir, "tb_logs", log_tag)
-    os.makedirs(os.path.dirname(tensorboard_dir), exist_ok=True)
+    tensorboard_dir = os.path.join(out_dir, "tb_logs")
+    os.makedirs(tensorboard_dir, exist_ok=True)
 
     algo_kwargs = dict(
         policy=policy,
@@ -142,8 +143,9 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
         if isinstance(extractor, str):
             alias_map = {
                 "GrayroadSmallCNN": GrayroadSmallCNN,
-                "GrayroadExtractor": GrayroadSmallCNN,
+                "GrayroadExtractor": GrayroadExtractor,
                 "ResNetFeatureExtractor": ResNetFeatureExtractor,
+                "BCNetExtractor": BCNetExtractor,
                 "SmallCNNSB3": SmallCNNSB3,
             }
             resolved = alias_map.get(extractor)
@@ -154,13 +156,19 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
             kwargs["features_extractor_class"] = resolved
         return kwargs
 
-    normalized_policy_kwargs = _normalize_policy_kwargs(algo_kwargs.get("policy_kwargs"))
-    if normalized_policy_kwargs:
-        algo_kwargs["policy_kwargs"] = normalized_policy_kwargs
+    resume_used = False
+    if resume_path and os.path.exists(resume_path):
+        print(f"[INFO] Resuming DQN training from {resume_path}")
+        model = DQN.load(resume_path, env=vec)
+        model.policy.to(model.device)
+        resume_used = True
     else:
-        algo_kwargs.pop("policy_kwargs", None)
-
-    model = DQN(**algo_kwargs)
+        normalized_policy_kwargs = _normalize_policy_kwargs(algo_kwargs.get("policy_kwargs"))
+        if normalized_policy_kwargs:
+            algo_kwargs["policy_kwargs"] = normalized_policy_kwargs
+        else:
+            algo_kwargs.pop("policy_kwargs", None)
+        model = DQN(**algo_kwargs)
     callbacks = []
     if render:
         callbacks.append(LiveRenderCallback(vec, freq=render_freq))
@@ -175,7 +183,17 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
             )
         )
     callback_list = CallbackList(callbacks) if callbacks else None
-    model.learn(total_timesteps=timesteps, progress_bar=True, callback=callback_list)
+    already = getattr(model, "num_timesteps", 0)
+    remaining = max(0, int(timesteps) - int(already))
+    if remaining <= 0:
+        print(f"[INFO] Target timesteps {timesteps} already reached (current={already}). Skipping additional training.")
+    else:
+        model.learn(
+            total_timesteps=remaining,
+            progress_bar=True,
+            callback=callback_list,
+            reset_num_timesteps=not resume_used,
+        )
 
     if hasattr(vec, "close"):
         vec.close()
@@ -229,7 +247,8 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
 
     csv_path = os.path.join(out_dir, "results_dqn.csv")
     header = ["method","obs_mode","action_space","success_rate","avg_deviation_m","fps","latency_ms","timesteps"]
-    row = ["DQN", obs_mode, "disc", f"{success_rate:.2f}", f"{avg_dev:.4f}", f"{timer.mean_fps:.2f}", f"{timer.mean_latency_ms:.3f}", timesteps]
+    trained_steps = int(getattr(model, "num_timesteps", timesteps))
+    row = ["DQN", obs_mode, "disc", f"{success_rate:.2f}", f"{avg_dev:.4f}", f"{timer.mean_fps:.2f}", f"{timer.mean_latency_ms:.3f}", trained_steps]
     exists = os.path.exists(csv_path)
     with open(csv_path, "a", newline="") as f:
         w = csv.writer(f)
@@ -243,7 +262,7 @@ def train_and_eval(env_kind: str, obs_mode: str, timesteps: int, eval_episodes: 
         "avg_deviation_m": avg_dev,
         "fps": timer.mean_fps,
         "latency_ms": timer.mean_latency_ms,
-        "timesteps": timesteps,
+        "timesteps": trained_steps,
         "log_tag": log_tag,
     }
 
@@ -261,6 +280,7 @@ def main():
     ap.add_argument("--checkpoint-dir", default=None, help="Directory for checkpoints (defaults to <out>/checkpoints)")
     ap.add_argument("--carla-host", default="localhost", help="CARLA server host")
     ap.add_argument("--carla-port", type=int, default=2000, help="CARLA server port")
+    ap.add_argument("--resume-from", default=None, help="Path to a saved DQN model to resume from")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -278,6 +298,7 @@ def main():
         checkpoint_dir=checkpoint_dir,
         carla_host=args.carla_host,
         carla_port=args.carla_port,
+        resume_path=args.resume_from,
     )
 
 if __name__ == "__main__":

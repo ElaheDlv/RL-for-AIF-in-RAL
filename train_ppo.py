@@ -14,8 +14,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from callbacks import DrivingMetricsCallback
-from cnn_extractors import ResNetFeatureExtractor, GrayroadSmallCNN
-from cnn_extractors import BCNetExtractor, GrayroadExtractor
+from cnn_extractors import ResNetFeatureExtractor, GrayroadSmallCNN, BCNetExtractor, GrayroadExtractor, SmallCNNSB3
 
 
 
@@ -44,7 +43,8 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
                    ppo_kwargs: Optional[Dict] = None,
                    run_name: Optional[str] = None,
                    carla_host: str = "localhost",
-                   carla_port: int = 2000):
+                   carla_port: int = 2000,
+                   resume_path: Optional[str] = None):
     def _make():
         env = make_env(
             env_kind,
@@ -151,8 +151,8 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
             f"{env_kind}-{obs_mode}-{action_space}-steps{timesteps}-seed{seed}-{config_suffix}"
         )
 
-    tensorboard_dir = os.path.join(out_dir, "tb_logs", log_tag)
-    os.makedirs(os.path.dirname(tensorboard_dir), exist_ok=True)
+    tensorboard_dir = os.path.join(out_dir, "tb_logs")
+    os.makedirs(tensorboard_dir, exist_ok=True)
 
     algo_kwargs = dict(
         policy=policy,
@@ -166,7 +166,7 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         n_epochs=10,
         learning_rate=lr_schedule,
         clip_range=clip_schedule,
-        target_kl=0.02,          # guardrail on policy updates
+        target_kl=0.02,
         ent_coef=0.01,
         tensorboard_log=tensorboard_dir,
     )
@@ -174,7 +174,7 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         algo_kwargs["policy_kwargs"] = policy_kwargs
 
     if ppo_kwargs:
-        ppo_kwargs = dict(ppo_kwargs)  # shallow copy so callers can reuse dicts
+        ppo_kwargs = dict(ppo_kwargs)
         policy_kw_override = ppo_kwargs.pop("policy_kwargs", None)
         if policy_kw_override:
             existing = algo_kwargs.get("policy_kwargs")
@@ -188,8 +188,10 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         if isinstance(extractor, str):
             alias_map = {
                 "GrayroadSmallCNN": GrayroadSmallCNN,
-                "GrayroadExtractor": GrayroadSmallCNN,
+                "GrayroadExtractor": GrayroadExtractor,
                 "ResNetFeatureExtractor": ResNetFeatureExtractor,
+                "BCNetExtractor": BCNetExtractor,
+                "SmallCNNSB3": SmallCNNSB3,
             }
             resolved = alias_map.get(extractor)
             if resolved is None:
@@ -199,13 +201,20 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
             kwargs["features_extractor_class"] = resolved
         return kwargs
 
-    normalized_policy_kwargs = _normalize_policy_kwargs(algo_kwargs.get("policy_kwargs"))
-    if normalized_policy_kwargs:
-        algo_kwargs["policy_kwargs"] = normalized_policy_kwargs
+    resume_used = False
+    model: PPO
+    if resume_path and os.path.exists(resume_path):
+        print(f"[INFO] Resuming PPO training from {resume_path}")
+        model = PPO.load(resume_path, env=vec)
+        model.policy.to(model.device)
+        resume_used = True
     else:
-        algo_kwargs.pop("policy_kwargs", None)
-
-    model = PPO(**algo_kwargs)
+        normalized_policy_kwargs = _normalize_policy_kwargs(algo_kwargs.get("policy_kwargs"))
+        if normalized_policy_kwargs:
+            algo_kwargs["policy_kwargs"] = normalized_policy_kwargs
+        else:
+            algo_kwargs.pop("policy_kwargs", None)
+        model = PPO(**algo_kwargs)
 
     callbacks = []
     if render:
@@ -223,14 +232,24 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
     callbacks.append(DrivingMetricsCallback())
     callback_list = CallbackList(callbacks) if callbacks else None
 
-    if timesteps % model.n_steps != 0:
-        rounded = (timesteps // model.n_steps + 1) * model.n_steps
-        print(
-            f"[WARN] total_timesteps={timesteps} is not a multiple of rollout n_steps={model.n_steps}. "
-            f"SB3 will collect {rounded} steps."
-        )
+    already = getattr(model, "num_timesteps", 0)
+    remaining = max(0, int(timesteps) - int(already))
+    if remaining <= 0:
+        print(f"[INFO] Target timesteps {timesteps} already reached (current={already}). Skipping additional training.")
+    else:
+        if remaining % model.n_steps != 0:
+            rounded = (remaining // model.n_steps + 1) * model.n_steps
+            print(
+                f"[WARN] remaining_timesteps={remaining} is not a multiple of rollout n_steps={model.n_steps}. "
+                f"SB3 will collect {rounded} steps."
+            )
 
-    model.learn(total_timesteps=timesteps, progress_bar=True, callback=callback_list)
+        model.learn(
+            total_timesteps=remaining,
+            progress_bar=True,
+            callback=callback_list,
+            reset_num_timesteps=not resume_used,
+        )
 
     if hasattr(vec, "close"):
         vec.close()
@@ -290,7 +309,8 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
     import csv
     csv_path = os.path.join(out_dir, "results_ppo.csv")
     header = ["method","obs_mode","action_space","success_rate","avg_deviation_m","fps","latency_ms","timesteps"]
-    row = ["PPO", obs_mode, action_space, f"{success_rate:.2f}", f"{avg_dev:.4f}", f"{timer.mean_fps:.2f}", f"{timer.mean_latency_ms:.3f}", timesteps]
+    trained_steps = int(getattr(model, "num_timesteps", timesteps))
+    row = ["PPO", obs_mode, action_space, f"{success_rate:.2f}", f"{avg_dev:.4f}", f"{timer.mean_fps:.2f}", f"{timer.mean_latency_ms:.3f}", trained_steps]
     exists = os.path.exists(csv_path)
     with open(csv_path, "a", newline="") as f:
         w = csv.writer(f)
@@ -304,7 +324,7 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         "avg_deviation_m": avg_dev,
         "fps": timer.mean_fps,
         "latency_ms": timer.mean_latency_ms,
-        "timesteps": timesteps,
+        "timesteps": trained_steps,
         "log_tag": log_tag,
     }
 
@@ -323,6 +343,7 @@ def main():
     ap.add_argument("--checkpoint-dir", default=None, help="Directory for checkpoints (defaults to <out>/checkpoints)")
     ap.add_argument("--carla-host", default="localhost", help="CARLA server host")
     ap.add_argument("--carla-port", type=int, default=2000, help="CARLA server port")
+    ap.add_argument("--resume-from", default=None, help="Path to a saved PPO model to resume from")
     args = ap.parse_args()
 
     os.makedirs(args.out, exist_ok=True)
@@ -341,6 +362,7 @@ def main():
         checkpoint_dir=checkpoint_dir,
         carla_host=args.carla_host,
         carla_port=args.carla_port,
+        resume_path=args.resume_from,
     )
 
 if __name__ == "__main__":

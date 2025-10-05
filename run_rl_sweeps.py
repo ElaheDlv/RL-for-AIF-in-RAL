@@ -54,6 +54,21 @@ def _resolve_checkpoint_dir(run_dir: Path, template: Optional[str], run_tag: str
         return path
     return run_dir / "checkpoints"
 
+
+def _find_resume_model(run_dir: Path) -> Optional[str]:
+    final_model = run_dir / "final_model.zip"
+    if final_model.exists():
+        return str(final_model)
+    final_candidates = sorted(run_dir.glob("*.zip"))
+    if final_candidates:
+        return str(final_candidates[-1])
+    ckpt_dir = run_dir / "checkpoints"
+    if ckpt_dir.exists():
+        candidates = sorted(ckpt_dir.glob("*.zip"))
+        if candidates:
+            return str(candidates[-1])
+    return None
+
 from train_ppo import train_and_eval as train_ppo_and_eval
 from train_dqn_disc import train_and_eval as train_dqn_and_eval
 
@@ -93,6 +108,7 @@ SUMMARY_FIELDS = [
     "checkpoint_freq",
     "checkpoint_dir",
     "final_model",
+    "resume_from",
     "timesteps",
     "eval_episodes",
     "seed",
@@ -265,6 +281,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Template for checkpoint directory (relative paths resolved inside each run dir; {run} placeholder allowed)",
     )
+    parser.add_argument("--resume-existing", action="store_true", help="Resume runs from existing checkpoints/final models when present")
     return parser.parse_args()
 
 
@@ -338,6 +355,11 @@ def main() -> None:
         )
         run_dir = out_root / run_tag
         run_dir.mkdir(parents=True, exist_ok=True)
+        resume_path = None
+        if args.resume_existing:
+            resume_path = _find_resume_model(run_dir)
+            if resume_path:
+                print(f"[INFO] Resuming from {resume_path}")
 
         results_file = run_dir / ("results_ppo.csv" if exp.algo == "ppo" else "results_dqn.csv")
         if args.skip_existing and results_file.exists():
@@ -370,6 +392,7 @@ def main() -> None:
                 "render_freq": render_freq,
                 "carla_host": carla_host,
                 "carla_port": carla_port,
+                "resume_from": resume_path,
                 "final_model": None,
                 "notes": exp.notes,
             }
@@ -391,6 +414,7 @@ def main() -> None:
                     run_name=run_tag,
                     carla_host=carla_host,
                     carla_port=carla_port,
+                    resume_path=resume_path,
                 )
             elif exp.algo == "dqn":
                 metrics = train_dqn_and_eval(
@@ -408,6 +432,7 @@ def main() -> None:
                     run_name=run_tag,
                     carla_host=carla_host,
                     carla_port=carla_port,
+                    resume_path=resume_path,
                 )
             else:
                 raise ValueError(f"Unknown algo '{exp.algo}' in experiment {exp.name}")
@@ -456,6 +481,7 @@ def main() -> None:
             "checkpoint_freq": str(checkpoint_freq),
             "checkpoint_dir": str(checkpoint_dir_path) if checkpoint_dir_path else "",
             "final_model": str(final_model_path) if final_model_path else "",
+            "resume_from": resume_path or "",
             "timesteps": str(metrics.get("timesteps", exp.timesteps)),
             "eval_episodes": str(exp.eval_episodes),
             "seed": str(exp.seed),
