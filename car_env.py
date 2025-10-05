@@ -267,13 +267,13 @@ class CarEnv(gym.Env):
             while self.grayroad_image is None:
                 self.world.tick()
             obs = _ensure(self.grayroad_image)
-            print("[DBG] grayroad obs shape:", obs.shape)
+            #print("[DBG] grayroad obs shape:", obs.shape)
             return obs
         else:
             while self.rgb_image is None:
                 self.world.tick()
             obs = _ensure(self.rgb_image)
-            print("[DBG] rgb obs shape:", obs.shape)
+            #print("[DBG] rgb obs shape:", obs.shape)
             return obs
 
     def _lane_deviation(self):
