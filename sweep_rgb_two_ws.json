@@ -1,0 +1,32 @@
+{
+  "defaults": {
+    "env_kind": "carla",
+    "timesteps": 4000000,
+    "eval_episodes": 12,
+    "seed": 0,
+    "checkpoint_freq": 100000,
+    "checkpoint_dir": "checkpoints",
+    "render": true,
+    "render_freq": 2,
+    "notes": "",
+    "carla_host": "localhost",
+    "carla_port": 2030
+  },
+  "experiments": [
+    {
+      "name": "ppo_rgb_cont_core",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "cont",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [0.0001, 0.00005, 0.0003],
+          "batch_size": [128, 64],
+          "n_steps": [2048, 1024],
+          "gae_lambda": [0.9, 0.95]
+        }
+      },
+      "notes": "RGB PPO continuous: LR, batch, rollout, GAE"
+    }
+  ]
+}

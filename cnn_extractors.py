@@ -76,9 +76,9 @@ class GrayroadSmallCNN(BaseFeaturesExtractor):
         assert C == 1, "GrayroadSmallCNN expects single-channel input"
         
         self.net = nn.Sequential(
-            nn.Conv2d(C, 32, kernel_size=5, stride=2, padding=2), nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1), nn.ReLU(),
-            nn.Conv2d(64,128, kernel_size=3, stride=2, padding=1), nn.ReLU(),
+            nn.Conv2d(C, 32, kernel_size=5, stride=2, padding=0), nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=0), nn.ReLU(),
+            nn.Conv2d(64,128, kernel_size=3, stride=2, padding=0), nn.ReLU(),
             nn.Flatten(),
         )
         with th.no_grad():
