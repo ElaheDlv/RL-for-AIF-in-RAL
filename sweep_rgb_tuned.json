@@ -21,7 +21,7 @@
       "param_grid": {
         "algo_kwargs": [
           {
-            "learning_rate": 0.0003,
+            "learning_rate": {"schedule": "linear", "start": 0.0003, "end": 0.00015},
             "n_steps": 2048,
             "batch_size": 256,
             "clip_range": 0.2,
@@ -35,7 +35,7 @@
             }
           },
           {
-            "learning_rate": 0.00018,
+            "learning_rate": {"schedule": "linear", "start": 0.00018, "end": 0.00009},
             "n_steps": 2048,
             "batch_size": 512,
             "clip_range": 0.18,
@@ -49,7 +49,7 @@
             }
           },
           {
-            "learning_rate": 0.00022,
+            "learning_rate": {"schedule": "linear", "start": 0.00022, "end": 0.00011},
             "n_steps": 1536,
             "batch_size": 384,
             "clip_range": 0.16,

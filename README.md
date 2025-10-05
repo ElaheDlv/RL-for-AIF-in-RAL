@@ -38,6 +38,7 @@ python run_rl_sweeps_with_config.py --config sweep_gray.json --out runs/sweeps_g
 # Add `--render --render-freq 1` to any command above to watch the live CARLA camera during training.
 # Use `--carla-host` / `--carla-port` if your simulator runs on a non-default address.
 # Sweeps default to checkpointing every 100k steps; override with `--checkpoint-freq`.
+# Learning rates accept either constants or linear schedules via `{ "schedule": "linear", "start": x, "end": y }` (used in the sweep JSON presets).
 # Resume a stopped run with `--resume-from path/to/model.zip`.
 
 python train_ppo.py --env carla --obs rgb --action disc --timesteps 8000000 --eval-episodes 12 --out runs/ppo_disc_rgb --render --render-freq 1

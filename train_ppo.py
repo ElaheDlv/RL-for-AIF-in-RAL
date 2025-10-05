@@ -5,7 +5,7 @@ import hashlib
 import json
 import os
 import re
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import torch as th
@@ -110,7 +110,9 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         #     )   
 
 
-    lr_schedule   = linear_schedule(1e-4, 5e-5)
+    default_lr_start = 1e-4
+    default_lr_end = 5e-5
+    lr_schedule   = linear_schedule(default_lr_start, default_lr_end)
     clip_schedule = linear_schedule(0.20, 0.10)
 
     def _sanitize_tag(text: str) -> str:
@@ -154,6 +156,24 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
     tensorboard_dir = os.path.join(out_dir, "tb_logs")
     os.makedirs(tensorboard_dir, exist_ok=True)
 
+    def _prepare_learning_rate(spec: Optional[Any]):
+        if spec is None:
+            return lr_schedule
+        if callable(spec):
+            return spec
+        if isinstance(spec, (float, int)):
+            return float(spec)
+        if isinstance(spec, dict):
+            schedule_type = str(spec.get("schedule", "linear")).lower()
+            if schedule_type == "constant":
+                value = spec.get("value", spec.get("start", default_lr_start))
+                return float(value)
+            if schedule_type == "linear":
+                start = float(spec.get("start", default_lr_start))
+                end = float(spec.get("end", default_lr_end))
+                return linear_schedule(start, end)
+        raise ValueError(f"Unsupported learning_rate specification: {spec}")
+
     algo_kwargs = dict(
         policy=policy,
         env=vec,
@@ -175,11 +195,17 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
 
     if ppo_kwargs:
         ppo_kwargs = dict(ppo_kwargs)
+        lr_override = ppo_kwargs.pop("learning_rate", None)
         policy_kw_override = ppo_kwargs.pop("policy_kwargs", None)
         if policy_kw_override:
             existing = algo_kwargs.get("policy_kwargs")
             algo_kwargs["policy_kwargs"] = _merge_policy_kwargs(existing, policy_kw_override)
         algo_kwargs.update(ppo_kwargs)
+    else:
+        lr_override = None
+
+    lr_callable = _prepare_learning_rate(lr_override)
+    algo_kwargs["learning_rate"] = lr_callable
 
     def _normalize_policy_kwargs(kwargs: Optional[Dict]) -> Optional[Dict]:
         if not kwargs:
@@ -207,6 +233,16 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         print(f"[INFO] Resuming PPO training from {resume_path}")
         model = PPO.load(resume_path, env=vec)
         model.policy.to(model.device)
+        if lr_override is not None:
+            if callable(lr_callable):
+                model.lr_schedule = lr_callable
+                current_lr = float(lr_callable(1.0))
+            else:
+                model.lr_schedule = lambda _: float(lr_callable)
+                current_lr = float(lr_callable)
+            model.learning_rate = current_lr
+            for param_group in model.optimizer.param_groups:
+                param_group['lr'] = current_lr
         resume_used = True
     else:
         normalized_policy_kwargs = _normalize_policy_kwargs(algo_kwargs.get("policy_kwargs"))
