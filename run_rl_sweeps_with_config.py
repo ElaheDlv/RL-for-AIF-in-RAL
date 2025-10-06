@@ -104,7 +104,40 @@ def _format_hparam(value: Any) -> Optional[str]:
     return None
 
 
-def _build_model_basename(exp: Experiment) -> str:
+def _format_float_token(value: Any) -> Optional[str]:
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return None
+    return f"{num:.6g}".replace(".", "p")
+
+
+def _describe_learning_rate(algo_kwargs: Optional[Dict[str, Any]]) -> str:
+    params = dict(algo_kwargs or {})
+    lr_spec = params.get("learning_rate")
+    if lr_spec is None:
+        return "lr-default"
+    if isinstance(lr_spec, (int, float)):
+        token = _format_float_token(lr_spec)
+        return _sanitize_tag(f"lr-{token}") if token else "lr"
+    if isinstance(lr_spec, dict):
+        schedule = str(lr_spec.get("schedule", "linear")).lower()
+        if schedule == "constant":
+            token = _format_float_token(lr_spec.get("value", lr_spec.get("start")))
+            label = f"lr-const-{token}" if token else "lr-const"
+            return _sanitize_tag(label)
+        if schedule == "linear":
+            start_token = _format_float_token(lr_spec.get("start")) or "na"
+            end_token = _format_float_token(lr_spec.get("end")) or "na"
+            label = f"lr-lin-{start_token}-to-{end_token}"
+            return _sanitize_tag(label)
+        return _sanitize_tag(f"lr-{schedule}")
+    if callable(lr_spec):
+        return "lr-schedule"
+    return _sanitize_tag(f"lr-{lr_spec}")
+
+
+def _build_model_basename(exp: Experiment, lr_tag: str, time_token: str) -> str:
     parts = [
         _sanitize_tag(exp.name),
         exp.algo,
@@ -116,7 +149,6 @@ def _build_model_basename(exp: Experiment) -> str:
 
     algo_params = exp.algo_kwargs or {}
     key_map = [
-        ("lr", "learning_rate"),
         ("batch", "batch_size"),
         ("nsteps", "n_steps"),
         ("trainfreq", "train_freq"),
@@ -129,6 +161,11 @@ def _build_model_basename(exp: Experiment) -> str:
         formatted = _format_hparam(value)
         if formatted is not None:
             parts.append(_sanitize_tag(f"{label}-{formatted}"))
+
+    if lr_tag:
+        parts.append(lr_tag)
+    if time_token:
+        parts.append(f"ts-{time_token}")
 
     return "__".join(parts)
 
@@ -318,8 +355,9 @@ def build_run_tag(
     render: bool,
     render_freq: int,
     carla_host: str,
-    carla_port: int,
+    _carla_port: int,
     checkpoint_freq: int,
+    lr_tag: str,
 ) -> str:
     parts = [
         _sanitize_tag(exp.name),
@@ -332,9 +370,10 @@ def build_run_tag(
         f"render-{int(bool(render))}",
         f"rfreq-{render_freq}",
         f"host-{_sanitize_tag(carla_host)}",
-        f"port-{carla_port}",
         f"cfreq-{checkpoint_freq}",
     ]
+    if lr_tag:
+        parts.append(lr_tag)
     if exp.algo_kwargs:
         parts.append(f"cfg-{_hash_config(exp.algo_kwargs)}")
     return _sanitize_tag("__".join(parts))
@@ -369,7 +408,8 @@ def main() -> None:
         checkpoint_freq = args.checkpoint_freq if args.checkpoint_freq is not None else exp.checkpoint_freq
         checkpoint_template = args.checkpoint_dir if args.checkpoint_dir is not None else exp.checkpoint_dir
 
-        run_tag = build_run_tag(
+        lr_tag = _describe_learning_rate(exp.algo_kwargs)
+        base_tag = build_run_tag(
             exp,
             env_kind,
             render_flag,
@@ -377,8 +417,26 @@ def main() -> None:
             carla_host,
             carla_port,
             checkpoint_freq,
+            lr_tag,
         )
-        run_dir = out_root / run_tag
+        start_time = datetime.utcnow()
+        time_token = start_time.strftime("%Y%m%d-%H%M%S")
+        run_tag = f"{base_tag}__ts-{time_token}"
+        if args.resume_existing:
+            candidates = sorted(p for p in out_root.glob(f"{base_tag}__ts-*") if p.is_dir())
+            if candidates:
+                run_dir = candidates[-1]
+                run_tag = run_dir.name
+                try:
+                    extracted = run_tag.split("__ts-", 1)[1]
+                    time_token = extracted
+                    start_time = datetime.strptime(extracted, "%Y%m%d-%H%M%S")
+                except (IndexError, ValueError):
+                    start_time = datetime.utcnow()
+            else:
+                run_dir = out_root / run_tag
+        else:
+            run_dir = out_root / run_tag
         run_dir.mkdir(parents=True, exist_ok=True)
         resume_path = None
         if args.resume_existing:
@@ -403,6 +461,10 @@ def main() -> None:
             config_manifest = {
                 "experiment": exp.name,
                 "run_tag": run_tag,
+                "run_base_tag": base_tag,
+                "time_token": time_token,
+                "lr_tag": lr_tag,
+                "start_time_utc": start_time.isoformat(timespec="seconds"),
                 "algo": exp.algo,
                 "env": env_kind,
                 "obs_mode": exp.obs_mode,
@@ -482,7 +544,7 @@ def main() -> None:
         model_filename = f"{exp.algo}_{run_tag}.zip"
         model_path = run_dir / model_filename
         if model_path.exists():
-            model_basename = _build_model_basename(exp)
+            model_basename = _build_model_basename(exp, lr_tag, time_token)
             final_model_path = run_dir / f"{model_basename}.zip"
             if final_model_path.exists():
                 final_model_path.unlink()

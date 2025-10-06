@@ -14,7 +14,17 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from callbacks import DrivingMetricsCallback
-from cnn_extractors import ResNetFeatureExtractor, GrayroadSmallCNN, BCNetExtractor, GrayroadExtractor, SmallCNNSB3
+from cnn_extractors import (
+    ResNetFeatureExtractor,
+    GrayroadSmallCNN,
+    BCNetExtractor,
+    GrayroadExtractor,
+    SmallCNNSB3,
+)
+
+
+DEFAULT_LR_START = 1e-4
+DEFAULT_LR_END = 5e-5
 
 
 
