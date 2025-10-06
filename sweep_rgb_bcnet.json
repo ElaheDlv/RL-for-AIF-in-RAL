@@ -1,7 +1,7 @@
 {
   "defaults": {
     "env_kind": "carla",
-    "timesteps": 5000000,
+    "timesteps": 4000000,
     "eval_episodes": 16,
     "seed": 0,
     "checkpoint_freq": 100000,
@@ -10,7 +10,7 @@
     "render_freq": 5,
     "notes": "RGB PPO (BC-style) using BCNetExtractor",
     "carla_host": "localhost",
-    "carla_port": 2000
+    "carla_port": 2030
   },
   "experiments": [
     {
