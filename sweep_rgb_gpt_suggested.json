@@ -1,0 +1,36 @@
+{
+  "defaults": {
+    "env_kind": "carla",
+    "timesteps": 4000000,
+    "eval_episodes": 12,
+    "seed": 0,
+    "checkpoint_freq": 100000,
+    "checkpoint_dir": "checkpoints",
+    "render": true,
+    "render_freq": 2,
+    "notes": "",
+    "carla_host": "localhost",
+    "carla_port": 2030
+  },
+  "experiments": [
+    {
+      "name": "ppo_rgb_disc_core",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "disc",
+      "param_grid": {
+          "algo_kwargs": {
+          "learning_rate": {"schedule": "constant", "value": 0.00005},
+          "batch_size": 512,
+          "n_steps": 4096,
+          "gae_lambda": 0.95,
+          "gamma": 0.99,
+          "ent_coef": 0.005,
+          "vf_coef": 0.5,
+          "clip_range": 0.2
+        }
+      },
+      "notes": "RGB PPO continuous: LR, batch, rollout, GAE"
+    }
+  ]
+}
