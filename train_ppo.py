@@ -65,6 +65,7 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
             show_cam=render,
             carla_host=carla_host,
             carla_port=carla_port,
+            town=town,
         )
         return Monitor(env)
     vec = DummyVecEnv([_make])
@@ -92,6 +93,7 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
             features_extractor_class=BCNetExtractor,
             net_arch=dict(pi=[256,128], vf=[256,128]),
             activation_fn=th.nn.ReLU,
+            normalize_images=False,
             )
             
         elif obs_mode == "grayroad":
@@ -100,6 +102,7 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
             features_extractor_class=GrayroadExtractor,
             net_arch=dict(pi=[128,64], vf=[128,64]),
             activation_fn=th.nn.ReLU,
+            normalize_images=False,
             )
             
         # if obs_mode == "rgb":
@@ -316,6 +319,7 @@ def train_and_eval(env_kind: str, obs_mode: str, action_space: str,
         show_cam=False,
         carla_host=carla_host,
         carla_port=carla_port,
+        town=town,
     )
     successes, deviations = [], []
     timer = StepTimer()

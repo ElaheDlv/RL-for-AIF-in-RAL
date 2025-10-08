@@ -39,6 +39,7 @@ def try_make_carla_env(
     route_goal_tolerance: float = 5.0,
     carla_host: str = "localhost",
     carla_port: int = 2000,
+    town: Optional[str] = None,
 ):
     """
     Attempt to construct user's CarEnv with a minimal config.
@@ -63,6 +64,8 @@ def try_make_carla_env(
         "carla_host": carla_host,
         "carla_port": int(carla_port),
     }
+    if town:
+        cfg["town"] = str(town)
     if action_space == "cont":
         cfg["action_space"] = "continuous"
     try:
@@ -181,6 +184,7 @@ def make_env(
     route_goal_tolerance: float = 5.0,
     carla_host: str = "localhost",
     carla_port: int = 2000,
+    town: Optional[str] = None,
 ):
     which = which.lower()
     if which == "carla":
@@ -194,6 +198,7 @@ def make_env(
             route_goal_tolerance=route_goal_tolerance,
             carla_host=carla_host,
             carla_port=carla_port,
+            town=town,
         )
         if env is None:
             raise RuntimeError(

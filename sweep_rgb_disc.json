@@ -31,25 +31,6 @@
         }
       },
       "notes": "RGB PPO discrete: tuned for deterministic extractor (no image dropout)"
-    },
-    {
-      "name": "ppo_rgb_cont_dropfix",
-      "algo": "ppo",
-      "obs_mode": "rgb",
-      "action": "cont",
-      "param_grid": {
-        "algo_kwargs": {
-          "learning_rate": [
-            {"schedule": "linear", "start": 0.0004, "end": 0.0001},
-            {"schedule": "linear", "start": 0.00025, "end": 0.00005}
-          ],
-          "batch_size": [128, 256],
-          "n_steps": [2048],
-          "gae_lambda": [0.92, 0.95],
-          "vf_coef": [0.5, 0.7]
-        }
-      },
-      "notes": "RGB PPO continuous: higher initial LR and VF weight for smoother convergence"
     }
   ]
 }

@@ -14,25 +14,6 @@
   },
   "experiments": [
     {
-      "name": "ppo_rgb_disc_dropfix",
-      "algo": "ppo",
-      "obs_mode": "rgb",
-      "action": "disc",
-      "param_grid": {
-        "algo_kwargs": {
-          "learning_rate": [
-            {"schedule": "linear", "start": 0.0003, "end": 0.00005},
-            0.0002
-          ],
-          "batch_size": [128, 256],
-          "n_steps": [2048],
-          "gae_lambda": [0.95, 0.98],
-          "ent_coef": [0.005, 0.01]
-        }
-      },
-      "notes": "RGB PPO discrete: tuned for deterministic extractor (no image dropout)"
-    },
-    {
       "name": "ppo_rgb_cont_dropfix",
       "algo": "ppo",
       "obs_mode": "rgb",

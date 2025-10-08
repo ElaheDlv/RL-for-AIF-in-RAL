@@ -20,7 +20,11 @@
       "action": "disc",
       "param_grid": {
           "algo_kwargs": {
+<<<<<<< HEAD
           "learning_rate": {"schedule": "constant", "value": 0.00001},
+=======
+          "learning_rate": {"schedule": "constant", "value": 0.00005},
+>>>>>>> b22240269bfb9bc03d2a699521c573f0060068a5
           "batch_size": 512,
           "n_steps": 4096,
           "gae_lambda": 0.95,
