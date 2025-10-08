@@ -19,16 +19,18 @@
       "obs_mode": "rgb",
       "action": "disc",
       "param_grid": {
-        "algo_kwargs": {
-          "learning_rate": [
-            {"schedule": "linear", "start": 0.00005, "end": 0.000025},
-            {"schedule": "linear", "start": 0.0003, "end": 0.00015}
-          ],
-          "batch_size": [128, 64],
-          "n_steps": [2048, 1024]
+          "algo_kwargs": {
+          "learning_rate": {"schedule": "constant", "value": 0.00001},
+          "batch_size": 512,
+          "n_steps": 4096,
+          "gae_lambda": 0.95,
+          "gamma": 0.99,
+          "ent_coef": 0.005,
+          "vf_coef": 0.5,
+          "clip_range": 0.2
         }
       },
-      "notes": "RGB PPO discrete: LR, batch, rollout"
+      "notes": "RGB PPO continuous: LR, batch, rollout, GAE"
     }
   ]
 }
