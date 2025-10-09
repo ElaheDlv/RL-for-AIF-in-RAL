@@ -1,0 +1,79 @@
+{
+  "defaults": {
+    "env_kind": "carla",
+    "timesteps": 4000000,
+    "eval_episodes": 16,
+    "seed": 0,
+    "checkpoint_freq": 100000,
+    "checkpoint_dir": "checkpoints",
+    "render": true,
+    "render_freq": 2,
+    "notes": "RGB PPO with ResNet extractor",
+    "carla_host": "localhost",
+    "carla_port": 2030
+  },
+  "experiments": [
+    {
+      "name": "ppo_rgb_disc_resnet",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "disc",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [
+            {"schedule": "linear", "start": 0.0002, "end": 0.00005},
+            {"schedule": "linear", "start": 0.0001, "end": 0.00002}
+          ],
+          "batch_size": [128, 256],
+          "n_steps": [1024, 2048],
+          "gae_lambda": [0.93, 0.96],
+          "clip_range": [0.2, 0.15],
+          "policy_kwargs": {
+            "features_extractor_class": ["ResNetFeatureExtractor"],
+            "features_extractor_kwargs": [
+              {"out_dim": 512, "freeze": true},
+              {"out_dim": 512, "freeze": false}
+            ],
+            "net_arch": [
+              {"pi": [256, 128], "vf": [256, 128]},
+              {"pi": [512, 256], "vf": [512, 256]}
+            ],
+            "normalize_images": [false]
+          }
+        }
+      },
+      "notes": "Discrete RGB PPO using ResNet backbone; freeze flag toggled to compare"
+    },
+    {
+      "name": "ppo_rgb_cont_resnet",
+      "algo": "ppo",
+      "obs_mode": "rgb",
+      "action": "cont",
+      "param_grid": {
+        "algo_kwargs": {
+          "learning_rate": [
+            {"schedule": "linear", "start": 0.0003, "end": 0.00005},
+            {"schedule": "linear", "start": 0.00015, "end": 0.00003}
+          ],
+          "batch_size": [128, 256],
+          "n_steps": [1024, 1536],
+          "gae_lambda": [0.92, 0.95],
+          "vf_coef": [0.6, 0.8],
+          "policy_kwargs": {
+            "features_extractor_class": ["ResNetFeatureExtractor"],
+            "features_extractor_kwargs": [
+              {"out_dim": 512, "freeze": true},
+              {"out_dim": 512, "freeze": false}
+            ],
+            "net_arch": [
+              {"pi": [256, 128], "vf": [256, 128]},
+              {"pi": [384, 192], "vf": [384, 192]}
+            ],
+            "normalize_images": [false]
+          }
+        }
+      },
+      "notes": "Continuous RGB PPO ResNet sweep with smaller rollouts"
+    }
+  ]
+}

@@ -10,7 +10,7 @@
     "render_freq": 2,
     "notes": "",
     "carla_host": "localhost",
-    "carla_port": 2030
+    "carla_port": 2005
   },
   "experiments": [
     {

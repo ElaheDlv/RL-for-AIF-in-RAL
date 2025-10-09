@@ -1,0 +1,2 @@
+method,obs_mode,action_space,success_rate,avg_deviation_m,fps,latency_ms,timesteps
+PPO,rgb,disc,91.67,0.1736,322.42,3.102,4001792
