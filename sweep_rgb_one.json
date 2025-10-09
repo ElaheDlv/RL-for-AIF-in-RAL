@@ -21,7 +21,6 @@
       "param_grid": {
         "algo_kwargs": {
           "learning_rate": [
-            {"schedule": "linear", "start": 0.0005, "end": 0.00025},
             {"schedule": "linear", "start": 0.00005, "end": 0.000025},
             {"schedule": "linear", "start": 0.0003, "end": 0.00015}
           ],
