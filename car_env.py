@@ -43,6 +43,7 @@ class CarEnv(gym.Env):
         self.spin_penalty = float(cfg.get("spin_penalty", 6.0))
         self.spin_speed_threshold_kmh = float(cfg.get("spin_speed_threshold_kmh", 5.0))
         self.min_continuous_throttle = float(cfg.get("min_continuous_throttle", 0.05))
+        self.spin_consec_limit = int(cfg.get("spin_consec_limit", 15))
 
         # Action space
         if self.discrete:
@@ -193,6 +194,7 @@ class CarEnv(gym.Env):
             self.world.tick()
         self.prev_steer = 0.0
         self.prev_lane_dev = 0.0
+        self.spin_steps = 0
         obs = self._get_obs()
         info = {}
         if self.current_route:
@@ -257,15 +259,18 @@ class CarEnv(gym.Env):
             terminated = True
             info["terminated_reason"] = "lane_deviation"
 
-        if (
-            not self.discrete
-            and v2 > self.spin_speed_threshold_kmh
-            and yaw_rate > self.spin_yaw_rate_threshold
-            and self.t > 20
-        ):
-            reward -= self.spin_penalty
-            terminated = True
-            info["terminated_reason"] = "spin"
+        if not self.discrete and v2 > self.spin_speed_threshold_kmh:
+            if yaw_rate > self.spin_yaw_rate_threshold:
+                self.spin_steps += 1
+            else:
+                self.spin_steps = 0
+
+            if self.spin_steps >= self.spin_consec_limit:
+                reward -= self.spin_penalty
+                terminated = True
+                info["terminated_reason"] = "spin"
+        else:
+            self.spin_steps = 0
 
         if self.t >= self.max_steps:
             terminated = True
