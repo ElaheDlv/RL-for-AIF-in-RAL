@@ -41,6 +41,8 @@ class CarEnv(gym.Env):
         self.max_continuous_steer = float(cfg.get("max_continuous_steer", 0.6))
         self.spin_yaw_rate_threshold = float(cfg.get("spin_yaw_rate_threshold", 1.2))
         self.spin_penalty = float(cfg.get("spin_penalty", 6.0))
+        self.spin_speed_threshold_kmh = float(cfg.get("spin_speed_threshold_kmh", 5.0))
+        self.min_continuous_throttle = float(cfg.get("min_continuous_throttle", 0.05))
 
         # Action space
         if self.discrete:
@@ -213,12 +215,12 @@ class CarEnv(gym.Env):
         if self.discrete:
             throttle = 0.3 if v2 < 30.0 else 0.0
         else:
-            base_throttle = 0.3 if v2 < 28.0 else 0.15
-            if yaw_rate > 0.25:
-                throttle_scale = max(0.1, 1.0 - 0.5 * (yaw_rate / max(self.spin_yaw_rate_threshold, 1e-3)))
+            base_throttle = 0.32 if v2 < 25.0 else 0.18
+            if v2 > self.spin_speed_threshold_kmh and yaw_rate > 0.25:
+                throttle_scale = max(0.15, 1.0 - 0.5 * (yaw_rate / max(self.spin_yaw_rate_threshold, 1e-3)))
             else:
                 throttle_scale = 1.0
-            throttle = float(np.clip(base_throttle * throttle_scale, 0.0, 0.35))
+            throttle = float(np.clip(base_throttle * throttle_scale, self.min_continuous_throttle, 0.38))
         self.vehicle.apply_control(carla.VehicleControl(throttle=throttle, steer=steer))
 
         # Step sim
@@ -237,7 +239,7 @@ class CarEnv(gym.Env):
             - 0.3 * min(yaw_err, 0.3)
             - 0.02 * steer_rate
         )
-        if not self.discrete:
+        if not self.discrete and v2 > self.spin_speed_threshold_kmh:
             reward -= 0.5 * min(yaw_rate, 2.0)
 
         terminated = False
@@ -255,7 +257,12 @@ class CarEnv(gym.Env):
             terminated = True
             info["terminated_reason"] = "lane_deviation"
 
-        if not self.discrete and yaw_rate > self.spin_yaw_rate_threshold and self.t > 20:
+        if (
+            not self.discrete
+            and v2 > self.spin_speed_threshold_kmh
+            and yaw_rate > self.spin_yaw_rate_threshold
+            and self.t > 20
+        ):
             reward -= self.spin_penalty
             terminated = True
             info["terminated_reason"] = "spin"
