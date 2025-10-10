@@ -38,6 +38,9 @@ class CarEnv(gym.Env):
         self.show_cam = bool(cfg.get("show_cam", False))
         self.window_name = cfg.get("window_name", "CarEnv Camera")
         self.route_goal_tolerance = float(cfg.get("route_goal_tolerance", 5.0))
+        self.max_continuous_steer = float(cfg.get("max_continuous_steer", 0.6))
+        self.spin_yaw_rate_threshold = float(cfg.get("spin_yaw_rate_threshold", 1.2))
+        self.spin_penalty = float(cfg.get("spin_penalty", 6.0))
 
         # Action space
         if self.discrete:
@@ -187,6 +190,7 @@ class CarEnv(gym.Env):
         for _ in range(3):
             self.world.tick()
         self.prev_steer = 0.0
+        self.prev_lane_dev = 0.0
         obs = self._get_obs()
         info = {}
         if self.current_route:
@@ -199,16 +203,22 @@ class CarEnv(gym.Env):
         if self.discrete:
             steer = float(self.steer_bins[int(action)])
         else:
-            steer = float(np.clip(action, -1.0, 1.0)[0])
+            steer = float(np.clip(action, -self.max_continuous_steer, self.max_continuous_steer)[0])
         
         # Vehicle speed (convert m/s to km/h)
         vel = self.vehicle.get_velocity()
         v2 = 3.6 * np.sqrt(vel.x**2 + vel.y**2 + vel.z**2)  # km/h
-
-        if v2 < 30.0:
-            throttle = 0.3
+        ang_vel = self.vehicle.get_angular_velocity()
+        yaw_rate = float(abs(ang_vel.z))
+        if self.discrete:
+            throttle = 0.3 if v2 < 30.0 else 0.0
         else:
-            throttle = 0.0
+            base_throttle = 0.3 if v2 < 28.0 else 0.15
+            if yaw_rate > 0.25:
+                throttle_scale = max(0.1, 1.0 - 0.5 * (yaw_rate / max(self.spin_yaw_rate_threshold, 1e-3)))
+            else:
+                throttle_scale = 1.0
+            throttle = float(np.clip(base_throttle * throttle_scale, 0.0, 0.35))
         self.vehicle.apply_control(carla.VehicleControl(throttle=throttle, steer=steer))
 
         # Step sim
@@ -227,12 +237,15 @@ class CarEnv(gym.Env):
             - 0.3 * min(yaw_err, 0.3)
             - 0.02 * steer_rate
         )
+        if not self.discrete:
+            reward -= 0.5 * min(yaw_rate, 2.0)
 
         terminated = False
         truncated = False
         info = {
             "lane_deviation": lane_dev,
             "yaw_error": yaw_err,
+            "yaw_rate": yaw_rate,
             "steer_rate": steer_rate,
             "success": False,
         }
@@ -240,10 +253,17 @@ class CarEnv(gym.Env):
         if lane_dev > 2.0:
             reward -= 5.0
             terminated = True
+            info["terminated_reason"] = "lane_deviation"
+
+        if not self.discrete and yaw_rate > self.spin_yaw_rate_threshold and self.t > 20:
+            reward -= self.spin_penalty
+            terminated = True
+            info["terminated_reason"] = "spin"
 
         if self.t >= self.max_steps:
             terminated = True
             info["success"] = lane_dev < 0.5
+        self.prev_lane_dev = lane_dev
 
         return obs, reward, terminated, truncated, info
     # -------- Helpers --------
