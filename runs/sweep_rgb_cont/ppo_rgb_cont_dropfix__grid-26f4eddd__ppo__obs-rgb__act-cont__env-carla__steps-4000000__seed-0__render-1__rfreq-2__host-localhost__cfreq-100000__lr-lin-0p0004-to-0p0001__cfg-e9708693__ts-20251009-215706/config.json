@@ -1,0 +1,35 @@
+{
+  "experiment": "ppo_rgb_cont_dropfix__grid-26f4eddd",
+  "run_tag": "ppo_rgb_cont_dropfix__grid-26f4eddd__ppo__obs-rgb__act-cont__env-carla__steps-4000000__seed-0__render-1__rfreq-2__host-localhost__cfreq-100000__lr-lin-0p0004-to-0p0001__cfg-e9708693__ts-20251009-215706",
+  "run_base_tag": "ppo_rgb_cont_dropfix__grid-26f4eddd__ppo__obs-rgb__act-cont__env-carla__steps-4000000__seed-0__render-1__rfreq-2__host-localhost__cfreq-100000__lr-lin-0p0004-to-0p0001__cfg-e9708693",
+  "time_token": "20251009-215706",
+  "lr_tag": "lr-lin-0p0004-to-0p0001",
+  "start_time_utc": "2025-10-09T21:57:06",
+  "algo": "ppo",
+  "env": "carla",
+  "obs_mode": "rgb",
+  "action": "cont",
+  "timesteps": 4000000,
+  "eval_episodes": 12,
+  "seed": 0,
+  "checkpoint_freq": 100000,
+  "checkpoint_dir": "/home/elahe/user/elahe/CARLA/code/RL-for-AIF-in-RAL/runs/sweep_rgb_cont/ppo_rgb_cont_dropfix__grid-26f4eddd__ppo__obs-rgb__act-cont__env-carla__steps-4000000__seed-0__render-1__rfreq-2__host-localhost__cfreq-100000__lr-lin-0p0004-to-0p0001__cfg-e9708693__ts-20251009-215706/checkpoints",
+  "algo_kwargs": {
+    "learning_rate": {
+      "schedule": "linear",
+      "start": 0.0004,
+      "end": 0.0001
+    },
+    "batch_size": 128,
+    "n_steps": 2048,
+    "gae_lambda": 0.92,
+    "vf_coef": 0.5
+  },
+  "render": true,
+  "render_freq": 2,
+  "carla_host": "localhost",
+  "carla_port": 2030,
+  "resume_from": null,
+  "notes": "RGB PPO continuous: higher initial LR and VF weight for smoother convergence",
+  "final_model": "runs/sweep_rgb_cont/ppo_rgb_cont_dropfix__grid-26f4eddd__ppo__obs-rgb__act-cont__env-carla__steps-4000000__seed-0__render-1__rfreq-2__host-localhost__cfreq-100000__lr-lin-0p0004-to-0p0001__cfg-e9708693__ts-20251009-215706/ppo_rgb_cont_dropfix__grid-26f4eddd__ppo__obs-rgb__act-cont__steps-4000000__seed-0__batch-128__nsteps-2048__lr-lin-0p0004-to-0p0001__ts-20251009-215706.zip"
+}
