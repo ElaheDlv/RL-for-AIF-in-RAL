@@ -1,0 +1,35 @@
+{
+  "experiment": "ppo_rgb_disc_dropfix__grid-3f820a3d",
+  "run_tag": "ppo_rgb_disc_dropfix__grid-3f820a3d__ppo__obs-rgb__act-disc__env-carla__steps-4000000__seed-0__render-1__rfreq-2__host-localhost__cfreq-100000__lr-lin-0p0003-to-5e-05__cfg-11c4fedc__ts-20251009-123733",
+  "run_base_tag": "ppo_rgb_disc_dropfix__grid-3f820a3d__ppo__obs-rgb__act-disc__env-carla__steps-4000000__seed-0__render-1__rfreq-2__host-localhost__cfreq-100000__lr-lin-0p0003-to-5e-05__cfg-11c4fedc",
+  "time_token": "20251009-123733",
+  "lr_tag": "lr-lin-0p0003-to-5e-05",
+  "start_time_utc": "2025-10-09T12:37:33",
+  "algo": "ppo",
+  "env": "carla",
+  "obs_mode": "rgb",
+  "action": "disc",
+  "timesteps": 4000000,
+  "eval_episodes": 12,
+  "seed": 0,
+  "checkpoint_freq": 100000,
+  "checkpoint_dir": "/home/elahed/users/elahe/RL for AIF in RAL/runs/sweep_rgb_disc/ppo_rgb_disc_dropfix__grid-3f820a3d__ppo__obs-rgb__act-disc__env-carla__steps-4000000__seed-0__render-1__rfreq-2__host-localhost__cfreq-100000__lr-lin-0p0003-to-5e-05__cfg-11c4fedc__ts-20251009-123733/checkpoints",
+  "algo_kwargs": {
+    "learning_rate": {
+      "schedule": "linear",
+      "start": 0.0003,
+      "end": 5e-05
+    },
+    "batch_size": 128,
+    "n_steps": 2048,
+    "gae_lambda": 0.95,
+    "ent_coef": 0.01
+  },
+  "render": true,
+  "render_freq": 2,
+  "carla_host": "localhost",
+  "carla_port": 2005,
+  "resume_from": null,
+  "notes": "RGB PPO discrete: tuned for deterministic extractor (no image dropout)",
+  "final_model": "runs/sweep_rgb_disc/ppo_rgb_disc_dropfix__grid-3f820a3d__ppo__obs-rgb__act-disc__env-carla__steps-4000000__seed-0__render-1__rfreq-2__host-localhost__cfreq-100000__lr-lin-0p0003-to-5e-05__cfg-11c4fedc__ts-20251009-123733/ppo_rgb_disc_dropfix__grid-3f820a3d__ppo__obs-rgb__act-disc__steps-4000000__seed-0__batch-128__nsteps-2048__lr-lin-0p0003-to-5e-05__ts-20251009-123733.zip"
+}
