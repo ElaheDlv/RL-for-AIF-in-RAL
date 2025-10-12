@@ -21,6 +21,7 @@
       "param_grid": {
         "algo_kwargs": {
           "learning_rate": [
+            {"schedule": "linear", "start": 0.0004, "end": 0.0001},
             {"schedule": "linear", "start": 0.00025, "end": 0.00005}
           ],
           "batch_size": [128, 256],
