@@ -1,0 +1,26 @@
+p
+[INFO] Using user's CarEnv.
+[RESULT] Town04-one_turn-212-352: success=True | steps=3211 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town04-one_turn-213-351: success=False | steps=2822 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town04-one_turn-214-350: success=True | steps=3316 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town04-one_turn-215-349: success=True | steps=3248 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town04-straight-325-135: success=True | steps=4229 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town04-straight-326-136: success=True | steps=4072 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town04-straight-327-137: success=True | steps=4139 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town04-straight-328-138: success=True | steps=3986 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town04-two_turn-37-207: success=False | steps=12000 | reason=max_steps
+[INFO] Using user's CarEnv.
+[RESULT] Town04-two_turn-38-206: success=False | steps=6160 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town04-two_turn-39-205: success=True | steps=6942 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town04-two_turn-40-204: success=False | steps=5456 | reason=lane_deviation
+

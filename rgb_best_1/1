@@ -1,0 +1,70 @@
+[INFO] Using user's CarEnv.
+[RESULT] Town01-straight-168-76: success=False | steps=343 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town01-straight-168-76: success=False | steps=12000 | reason=max_steps
+[INFO] Using user's CarEnv.
+[RESULT] Town01-straight-168-76: success=False | steps=569 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town01-straight-168-76: success=False | steps=720 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town01-one_turn-125-163: success=False | steps=840 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town01-one_turn-125-163: success=False | steps=870 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town01-one_turn-125-163: success=False | steps=865 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town01-one_turn-125-163: success=False | steps=863 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town01-two_turns-206-51: success=False | steps=1316 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town01-two_turns-206-51: success=False | steps=1493 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town01-two_turns-206-51: success=False | steps=1392 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town01-two_turns-206-51: success=False | steps=1137 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town06-straight-416-252: success=True | steps=5119 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town06-straight-417-253: success=False | steps=866 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town06-straight-419-255: success=True | steps=4647 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town06-straight-420-256: success=True | steps=4727 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town06-one_turn-425-318: success=True | steps=8853 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town06-one_turn-426-319: success=False | steps=9715 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town06-one_turn-428-321: success=True | steps=7731 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town06-one_turn-429-322: success=True | steps=7536 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town06-two_turns-60-386: success=False | steps=2613 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town06-two_turns-61-385: success=False | steps=12000 | reason=max_steps
+[INFO] Using user's CarEnv.
+[RESULT] Town06-two_turns-62-385: success=False | steps=12000 | reason=max_steps
+[INFO] Using user's CarEnv.
+[RESULT] Town06-two_turns-63-386: success=False | steps=12000 | reason=max_steps
+[INFO] Using user's CarEnv.
+[RESULT] Town04-one_turn-212-352: success=True | steps=3166 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town04-one_turn-213-351: success=False | steps=1835 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town04-one_turn-214-350: success=False | steps=2007 | reason=lane_deviation
+[INFO] Using user's CarEnv.
+[RESULT] Town04-one_turn-215-349: success=False | steps=12000 | reason=max_steps
+[INFO] Using user's CarEnv.
+[RESULT] Town04-straight-325-135: success=True | steps=3750 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town04-straight-326-136: success=True | steps=3714 | reason=goal_reached
+[INFO] Using user's CarEnv.
+[RESULT] Town04-straight-327-137: success=False | steps=184 | reason=lane_deviation
+⚠️ Skipping route Town04-straight-328-138: Failed to construct CarEnv; please ensure CARLA is running and matches the expected API. Details: time-out of 10000ms while waiting for the simulator, make sure the simulator is ready and connected to localhost:2000
+⚠️ Skipping route Town04-two_turn-37-207: Failed to construct CarEnv; please ensure CARLA is running and matches the expected API. Details: time-out of 10000ms while waiting for the simulator, make sure the simulator is ready and connected to localhost:2000
+⚠️ Skipping route Town04-two_turn-38-206: Failed to construct CarEnv; please ensure CARLA is running and matches the expected API. Details: time-out of 10000ms while waiting for the simulator, make sure the simulator is ready and connected to localhost:2000
+⚠️ Skipping route Town04-two_turn-39-205: Failed to construct CarEnv; please ensure CARLA is running and matches the expected API. Details: time-out of 10000ms while waiting for the simulator, make sure the simulator is ready and connected to localhost:2000
+⚠️ Skipping route Town04-two_turn-40-204: Failed to construct CarEnv; please ensure CARLA is running and matches the expected API. Details: time-out of 10000ms while waiting for the simulator, make sure the simulator is ready and connected to localhost:2000
+
+✅ All routes evaluated. Results saved to rl_eval_results.csv.
+

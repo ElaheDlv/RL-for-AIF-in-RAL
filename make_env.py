@@ -40,6 +40,8 @@ def try_make_carla_env(
     carla_host: str = "localhost",
     carla_port: int = 2000,
     town: Optional[str] = None,
+    max_steps: Optional[int] = None,
+    lane_deviation_terminate: Optional[float] = None,
 ):
     """
     Attempt to construct user's CarEnv with a minimal config.
@@ -64,10 +66,14 @@ def try_make_carla_env(
         "carla_host": carla_host,
         "carla_port": int(carla_port),
     }
+    if lane_deviation_terminate is not None:
+        cfg["lane_deviation_terminate"] = lane_deviation_terminate
     if town:
         cfg["town"] = str(town)
     if action_space == "cont":
         cfg["action_space"] = "continuous"
+    if max_steps is not None:
+        cfg["max_steps"] = int(max_steps)
     try:
         env = CarEnv(cfg)
         env = ensure_channel_first(env)
@@ -185,6 +191,8 @@ def make_env(
     carla_host: str = "localhost",
     carla_port: int = 2000,
     town: Optional[str] = None,
+    max_steps: Optional[int] = None,
+    lane_deviation_terminate: Optional[float] = None,
 ):
     which = which.lower()
     if which == "carla":
@@ -199,6 +207,8 @@ def make_env(
             carla_host=carla_host,
             carla_port=carla_port,
             town=town,
+            max_steps=max_steps,
+            lane_deviation_terminate=lane_deviation_terminate,
         )
         if env is None:
             raise RuntimeError(

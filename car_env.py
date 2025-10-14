@@ -44,6 +44,12 @@ class CarEnv(gym.Env):
         self.spin_speed_threshold_kmh = float(cfg.get("spin_speed_threshold_kmh", 5.0))
         self.min_continuous_throttle = float(cfg.get("min_continuous_throttle", 0.05))
         self.spin_consec_limit = int(cfg.get("spin_consec_limit", 15))
+        lane_dev_terminate = cfg.get("lane_deviation_terminate", 2.0)
+        if lane_dev_terminate is None:
+            self.lane_deviation_terminate = None
+        else:
+            lane_dev_terminate = float(lane_dev_terminate)
+            self.lane_deviation_terminate = lane_dev_terminate if lane_dev_terminate > 0 else None
 
         # Action space
         if self.discrete:
@@ -110,8 +116,9 @@ class CarEnv(gym.Env):
     # -------- Camera Callbacks --------
     def _rgb_callback(self, image):
         array = np.frombuffer(image.raw_data, dtype=np.uint8)
-        array = array.reshape((image.height, image.width, 4))[:,:,:3]
-        self.rgb_image = (array/255.0).astype(np.float32)
+        array = array.reshape((image.height, image.width, 4))[:, :, :3]
+        array = array[:, :, ::-1]  # BGRA -> RGB
+        self.rgb_image = (array / 255.0).astype(np.float32)
 
     def _sem_callback(self, image):
         # Convert the semantic segmentation frame to the CityScapes colour palette
@@ -228,11 +235,20 @@ class CarEnv(gym.Env):
         # Step sim
         self.world.tick()
         obs = self._get_obs()
-        # --- reward components ---
+        # --- pose and reward components ---
+        transform = self.vehicle.get_transform()
+        veh_loc = transform.location
+        veh_rot = transform.rotation
         lane_dev = float(self._lane_deviation())
         yaw_err = float(abs(self._heading_error()))
         steer_rate = float(abs(steer - self.prev_steer))
         self.prev_steer = steer
+        waypoint = self.map.get_waypoint(
+            veh_loc,
+            project_to_road=True,
+            lane_type=carla.LaneType.Driving,
+        )
+        wp_transform = waypoint.transform if waypoint is not None else None
 
         base_reward = 0.2
         reward = (
@@ -252,9 +268,19 @@ class CarEnv(gym.Env):
             "yaw_rate": yaw_rate,
             "steer_rate": steer_rate,
             "success": False,
+            "vehicle_location_x": float(veh_loc.x),
+            "vehicle_location_y": float(veh_loc.y),
+            "vehicle_location_z": float(veh_loc.z),
+            "vehicle_rotation_pitch": float(veh_rot.pitch),
+            "vehicle_rotation_yaw": float(veh_rot.yaw),
+            "vehicle_rotation_roll": float(veh_rot.roll),
+            "vehicle_speed_kmh": float(v2),
+            "waypoint_location_x": float(wp_transform.location.x) if wp_transform else None,
+            "waypoint_location_y": float(wp_transform.location.y) if wp_transform else None,
+            "waypoint_location_z": float(wp_transform.location.z) if wp_transform else None,
         }
 
-        if lane_dev > 2.0:
+        if self.lane_deviation_terminate is not None and lane_dev > self.lane_deviation_terminate:
             reward -= 5.0
             terminated = True
             info["terminated_reason"] = "lane_deviation"

@@ -1,0 +1,52 @@
+rl_eval_step_metrics_Town06-one_turn-426-319.csv: 0.238
+rl_eval_step_metrics_Town06-one_turn-429-322.csv: 0.141
+rl_eval_step_metrics_Town06-one_turn-428-321.csv: 0.152
+rl_eval_step_metrics_Town06-one_turn-425-318.csv: 0.141
+
+
+rl_eval_step_metrics_Town06-two_turns-60-386.csv: 1.143
+rl_eval_step_metrics_Town06-two_turns-61-385.csv: 0.248
+rl_eval_step_metrics_Town06-two_turns-62-385.csv: 0.445
+rl_eval_step_metrics_Town06-two_turns-63-386.csv: 0.271
+
+rl_eval_step_metrics_Town06-straight-416-252.csv: 0.080
+rl_eval_step_metrics_Town06-straight-420-256.csv: 0.166
+rl_eval_step_metrics_Town06-straight-419-255.csv: 0.090
+rl_eval_step_metrics_Town06-straight-417-253.csv: 0.475
+
+
+
+rl_eval_step_metrics_Town04-two_turn-38-206.csv: 0.155
+rl_eval_step_metrics_Town04-two_turn-40-204.csv: 0.199
+rl_eval_step_metrics_Town04-two_turn-39-205.csv: 0.246
+rl_eval_step_metrics_Town04-two_turn-37-207.csv: 0.146
+
+
+
+rl_eval_step_metrics_Town04-straight-328-138.csv: 0.073
+rl_eval_step_metrics_Town04-straight-327-137.csv: 0.887
+rl_eval_step_metrics_Town04-straight-326-136.csv: 0.133
+rl_eval_step_metrics_Town04-straight-325-135.csv: 0.146
+
+
+
+rl_eval_step_metrics_Town04-one_turn-212-352.csv: 1.836
+rl_eval_step_metrics_Town04-one_turn-215-349.csv: 0.251
+rl_eval_step_metrics_Town04-one_turn-213-351.csv: 2.024
+rl_eval_step_metrics_Town04-one_turn-214-350.csv: 2.289
+
+
+
+
+
+
+
+for twon 1 it should be done 3 more times.
+
+rl_eval_step_metrics_Town01-two_turns-206-51.csv: 2.270
+
+
+rl_eval_step_metrics_Town01-one_turn-125-163.csv: 3.252
+
+
+rl_eval_step_metrics_Town01-straight-168-76.csv: 1.601

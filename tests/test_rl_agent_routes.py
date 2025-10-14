@@ -38,6 +38,10 @@ from typing import Iterable, List
 import numpy as np
 import pytest
 
+import csv
+
+import argparse
+
 pytest.importorskip(
     "stable_baselines3",
     reason="Stable-Baselines3 is required to replay trained RL policies",
@@ -58,15 +62,37 @@ if not MODEL_PATH_VALUE:
         allow_module_level=True,
     )
 
+parser = argparse.ArgumentParser(description="Replay a trained RL agent on predefined CARLA routes")
 
-ALGO_NAME = os.environ.get("RL_ROUTE_ALGO", "ppo").strip().lower()
-OBS_MODE = os.environ.get("RL_ROUTE_OBS", "grayroad").strip().lower()
-ACTION_SPACE = os.environ.get("RL_ROUTE_ACTION", "disc").strip().lower()
-MAX_STEPS = int(os.environ.get("RL_ROUTE_MAX_STEPS", "3000"))
-ROUTE_GOAL_TOL = float(os.environ.get("RL_ROUTE_GOAL_TOL", "5.0"))
-BASE_SEED = int(os.environ.get("RL_ROUTE_SEED", "7"))
-CARLA_HOST = os.environ.get("RL_ROUTE_HOST", "localhost")
-CARLA_PORT = int(os.environ.get("RL_ROUTE_PORT", "2000"))
+parser.add_argument("--model", required=True, help="Path to the trained RL model (.zip)")
+parser.add_argument("--algo", default="ppo", choices=["ppo", "dqn"], help="RL algorithm (ppo or dqn)")
+parser.add_argument("--obs", default="grayroad", choices=["grayroad", "rgb"], help="Observation mode")
+parser.add_argument("--action", default="disc", choices=["disc", "cont"], help="Action space")
+parser.add_argument("--max_steps", type=int, default=3000, help="Max steps per route")
+parser.add_argument("--goal_tol", type=float, default=5.0, help="Goal distance tolerance (m)")
+parser.add_argument("--seed", type=int, default=7, help="Base RNG seed")
+parser.add_argument("--host", default="localhost", help="CARLA host address")
+parser.add_argument("--port", type=int, default=2000, help="CARLA port")
+
+args, unknown = parser.parse_known_args()
+
+MODEL_PATH = Path(args.model).expanduser().resolve()
+ALGO_NAME = args.algo.lower()
+OBS_MODE = args.obs.lower()
+ACTION_SPACE = args.action.lower()
+MAX_STEPS = args.max_steps
+ROUTE_GOAL_TOL = args.goal_tol
+BASE_SEED = args.seed
+CARLA_HOST = args.host
+CARLA_PORT = args.port
+# ALGO_NAME = os.environ.get("RL_ROUTE_ALGO", "ppo").strip().lower()
+# OBS_MODE = os.environ.get("RL_ROUTE_OBS", "grayroad").strip().lower()
+# ACTION_SPACE = os.environ.get("RL_ROUTE_ACTION", "disc").strip().lower()
+# MAX_STEPS = int(os.environ.get("RL_ROUTE_MAX_STEPS", "3000"))
+# ROUTE_GOAL_TOL = float(os.environ.get("RL_ROUTE_GOAL_TOL", "5.0"))
+# BASE_SEED = int(os.environ.get("RL_ROUTE_SEED", "7"))
+# CARLA_HOST = os.environ.get("RL_ROUTE_HOST", "localhost")
+# CARLA_PORT = int(os.environ.get("RL_ROUTE_PORT", "2000"))
 
 if ALGO_NAME not in {"ppo", "dqn"}:
     raise ValueError(f"Unsupported RL_ROUTE_ALGO '{ALGO_NAME}'. Expected 'ppo' or 'dqn'.")
@@ -306,6 +332,20 @@ def test_trained_rl_agent_handles_route(spec: RouteSpec, rl_model):
         "lane_deviation": avg_lane_dev,
         "termination_reason": termination_reason,
     }
+    
+    results_path = "rl_eval_results.csv"
+    header = [
+    "route_index", "start", "goal", "steps", "success",
+    "goal_distance", "lane_deviation", "termination_reason"
+        ]
+
+    # Append results to a CSV file
+    file_exists = os.path.exists(results_path)
+    with open(results_path, "a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=header)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(metrics_row)
 
     print(
         f"[RESULT] {spec.id}: steps={metrics_row['steps']} | success={bool(metrics_row['success'])} | "
