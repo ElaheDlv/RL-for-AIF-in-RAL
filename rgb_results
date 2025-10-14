@@ -44,9 +44,21 @@ rl_eval_step_metrics_Town04-one_turn-214-350.csv: 2.289
 for twon 1 it should be done 3 more times.
 
 rl_eval_step_metrics_Town01-two_turns-206-51.csv: 2.270
-
+rl_eval_step_metrics_Town01-two_turns-206-51_3.csv: 0.372
+rl_eval_step_metrics_Town01-two_turns-206-51_2.csv: 0.438
+rl_eval_step_metrics_Town01-two_turns-206-51_1.csv: 0.748
 
 rl_eval_step_metrics_Town01-one_turn-125-163.csv: 3.252
-
+rl_eval_step_metrics_Town01-one_turn-125-163_3.csv: 3.597
+rl_eval_step_metrics_Town01-one_turn-125-163_2.csv: 1.857
+rl_eval_step_metrics_Town01-one_turn-125-163_1.csv: 3.395
 
 rl_eval_step_metrics_Town01-straight-168-76.csv: 1.601
+rl_eval_step_metrics_Town01-straight-168-76_2.csv: 1.666
+rl_eval_step_metrics_Town01-straight-168-76_1.csv: 0.645
+rl_eval_step_metrics_Town01-straight-168-76_3.csv: 1.273
+
+
+
+
+
