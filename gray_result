@@ -1,0 +1,59 @@
+#### Gray results #####
+
+
+rl_eval_step_metrics_Town06-one_turn-426-319.csv: 0.376
+rl_eval_step_metrics_Town06-one_turn-429-322.csv: 1.313
+rl_eval_step_metrics_Town06-one_turn-428-321.csv: 0.243
+rl_eval_step_metrics_Town06-one_turn-425-318.csv: 1.190
+
+
+
+rl_eval_step_metrics_Town06-two_turns-60-386.csv: 0.177
+rl_eval_step_metrics_Town06-two_turns-61-385.csv: 2.228
+rl_eval_step_metrics_Town06-two_turns-62-385.csv: 0.210
+rl_eval_step_metrics_Town06-two_turns-63-386.csv: 0.249
+
+
+rl_eval_step_metrics_Town06-straight-416-252.csv: 0.130
+rl_eval_step_metrics_Town06-straight-420-256.csv: 0.074
+rl_eval_step_metrics_Town06-straight-419-255.csv: 0.063
+rl_eval_step_metrics_Town06-straight-417-253.csv: 0.084
+
+
+rl_eval_step_metrics_Town04-two_turn-38-206.csv: 0.203
+rl_eval_step_metrics_Town04-two_turn-40-204.csv: 0.208
+rl_eval_step_metrics_Town04-two_turn-39-205.csv: 0.286
+rl_eval_step_metrics_Town04-two_turn-37-207.csv: 1.617
+
+
+rl_eval_step_metrics_Town04-straight-328-138.csv: 0.122
+rl_eval_step_metrics_Town04-straight-327-137.csv: 0.121
+rl_eval_step_metrics_Town04-straight-326-136.csv: 0.255
+rl_eval_step_metrics_Town04-straight-325-135.csv: 0.123
+
+
+
+rl_eval_step_metrics_Town04-one_turn-212-352.csv: 0.258
+rl_eval_step_metrics_Town04-one_turn-215-349.csv: 2.067
+rl_eval_step_metrics_Town04-one_turn-213-351.csv: 0.436
+rl_eval_step_metrics_Town04-one_turn-214-350.csv: 0.401
+
+
+
+#### need to be repeated 3 more times ####
+
+rl_eval_step_metrics_Town01-straight-168-76.csv: 0.365
+rl_eval_step_metrics_Town01-straight-168-76_2.csv: 0.371
+rl_eval_step_metrics_Town01-straight-168-76_1.csv: 0.338
+rl_eval_step_metrics_Town01-straight-168-76_3.csv: 0.352
+
+rl_eval_step_metrics_Town01-one_turn-125-163.csv: 1.090
+rl_eval_step_metrics_Town01-one_turn-125-163_3.csv: 1.119
+rl_eval_step_metrics_Town01-one_turn-125-163_2.csv: 1.143
+rl_eval_step_metrics_Town01-one_turn-125-163_1.csv: 1.142
+
+rl_eval_step_metrics_Town01-two_turns-206-51.csv: 0.549
+rl_eval_step_metrics_Town01-two_turns-206-51_3.csv: 0.543
+rl_eval_step_metrics_Town01-two_turns-206-51_2.csv: 0.555
+rl_eval_step_metrics_Town01-two_turns-206-51_1.csv: 0.555
+
