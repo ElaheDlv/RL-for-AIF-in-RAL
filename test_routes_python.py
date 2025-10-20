@@ -9,6 +9,7 @@ import re
 import math
 import csv
 import sys
+import time
 import argparse
 from pathlib import Path
 from dataclasses import dataclass
@@ -16,6 +17,11 @@ from typing import Iterable, List
 
 import numpy as np
 from stable_baselines3 import PPO, DQN
+
+try:
+    import torch as th
+except ImportError:  # pragma: no cover - optional dependency
+    th = None
 
 from common_utils import STEER_BINS
 from make_env import make_env
@@ -76,6 +82,87 @@ LANE_DEV_LIMIT = args.lane_dev_limit
 
 MODEL_CLS = PPO if ALGO_NAME == "ppo" else DQN
 
+WARMUP_STEPS = 50
+TIMING_BATCH_SIZE = 1000
+LATENCY_CSV_PATH = Path("rl_inference_latency_batches.csv")
+SYNC_FN = lambda: None  # will be updated after loading the model
+
+_timing_state = {
+    "step_index": 0,
+    "batch_index": 0,
+    "batch_buffer": [],
+    "durations": [],
+    "csv_initialized": False,
+}
+
+
+def _ensure_latency_csv():
+    if _timing_state["csv_initialized"]:
+        return
+    with LATENCY_CSV_PATH.open("w", newline="") as f:
+        writer = csv.writer(f, lineterminator="\n")
+        writer.writerow(["batch_index", "steps", "mean_latency_ms", "std_latency_ms"])
+    _timing_state["csv_initialized"] = True
+
+
+def _flush_latency_batch():
+    batch = _timing_state["batch_buffer"]
+    if not batch:
+        return
+    _timing_state["batch_index"] += 1
+    batch_array = np.array(batch, dtype=np.float64)
+    mean_ms = batch_array.mean() * 1e3
+    std_ms = (batch_array.std(ddof=1) * 1e3) if batch_array.size > 1 else 0.0
+    _ensure_latency_csv()
+    with LATENCY_CSV_PATH.open("a", newline="") as f:
+        writer = csv.writer(f, lineterminator="\n")
+        writer.writerow(
+            [
+                _timing_state["batch_index"],
+                batch_array.size,
+                f"{mean_ms:.6f}",
+                f"{std_ms:.6f}",
+            ]
+        )
+    _timing_state["batch_buffer"] = []
+
+
+def _record_inference_duration(duration: float):
+    # duration in seconds
+    if _timing_state["step_index"] >= WARMUP_STEPS:
+        _timing_state["durations"].append(duration)
+        _timing_state["batch_buffer"].append(duration)
+        if len(_timing_state["batch_buffer"]) >= TIMING_BATCH_SIZE:
+            _flush_latency_batch()
+    _timing_state["step_index"] += 1
+
+
+def _finalize_latency_logging():
+    if _timing_state["batch_buffer"]:
+        _flush_latency_batch()
+    durations = _timing_state["durations"]
+    if durations:
+        arr = np.array(durations, dtype=np.float64)
+        mean_latency = arr.mean()
+        std_latency = arr.std(ddof=1) if arr.size > 1 else 0.0
+        steps_per_second = 1.0 / mean_latency if mean_latency > 0 else float("inf")
+        print(
+            f"[TIMING] RL policy inference: {mean_latency * 1e3:.3f} ms ± {std_latency * 1e3:.3f} ms "
+            f"over {arr.size} steps (warmup={WARMUP_STEPS}, ~{steps_per_second:.1f} steps/s)"
+        )
+    else:
+        print("[TIMING] No inference timings recorded (insufficient steps after warmup).")
+
+
+def _make_sync_fn(model):
+    if th is None:
+        return lambda: None
+    policy = getattr(model, "policy", None)
+    device = getattr(policy, "device", None)
+    if device and getattr(device, "type", None) == "cuda" and th.cuda.is_available():
+        return lambda: th.cuda.synchronize(device)
+    return lambda: None
+
 
 # ------------------ ROUTE SETUP ------------------
 
@@ -84,21 +171,21 @@ MODEL_CLS = PPO if ALGO_NAME == "ppo" else DQN
 #     "town06_one_turn(425_318)", "town06_one_turn(426_319)", "town04_straight(325-135)"
 # ]
 RAW_ROUTE_CODES = [
-     "town01_straight(168-76)",
     # "town01_straight(168-76)",
     # "town01_straight(168-76)",
     # "town01_straight(168-76)",
-     "town01_one_turn(125-163)",
+    # "town01_straight(168-76)",
     # "town01_one_turn(125-163)",
     # "town01_one_turn(125-163)",
     # "town01_one_turn(125-163)",
-     "town01_two_turns(206-51)"#,
+    # "town01_one_turn(125-163)",
+    # "town01_two_turns(206-51)",
     # "town01_two_turns(206-51)",
     # "town01_two_turns(206-51)",
     # "town01_two_turns(206-51)",
     # "town06_straight(416_252)",
     # "town06_straight(417_253)",
-    # "town06_straight(419_255)",
+     "town06_straight(419_255)",
     # "town06_straight(420-256)",
     # "town06_one_turn(425_318)",
     # "town06_one_turn(426_319)",
@@ -218,7 +305,11 @@ def evaluate_single_route(model, spec: RouteSpec):
         env.render()
 
     for step_idx in range(MAX_STEPS):
+        tick_start = time.perf_counter()
         action, _ = model.predict(obs, deterministic=True)
+        SYNC_FN()
+        tick_end = time.perf_counter()
+        _record_inference_duration(tick_end - tick_start)
         obs, reward, terminated, truncated, info = env.step(action)
         info = info or {}
         if RENDER_ENABLED and ((step_idx + 1) % RENDER_FREQ == 0 or terminated or truncated):
@@ -313,5 +404,7 @@ def evaluate_routes(model):
 
 if __name__ == "__main__":
     model = load_rl_model()
+    SYNC_FN = _make_sync_fn(model)
     evaluate_routes(model)
+    _finalize_latency_logging()
     print("\n✅ All routes evaluated. Results saved to rl_eval_results.csv.")
